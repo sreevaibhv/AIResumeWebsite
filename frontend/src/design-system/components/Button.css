@@ -1,0 +1,135 @@
+/* ============================================================
+   Button
+   ============================================================ */
+
+.ds-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.04em;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--t-fast) var(--ease),
+              border-color var(--t-fast) var(--ease),
+              color var(--t-fast) var(--ease);
+}
+
+.ds-btn__content {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.ds-btn__icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.ds-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ---------- sizes ---------- */
+.ds-btn--sm { font-size: 11px; padding: 6px 10px; min-height: 30px; }
+.ds-btn--md { font-size: 12px; padding: 9px 14px; min-height: 38px; }
+.ds-btn--lg { font-size: 13px; padding: 12px 18px; min-height: 46px; }
+
+.ds-btn--full { width: 100%; }
+
+.ds-btn--icon.ds-btn--sm { padding: 0; width: 30px; }
+.ds-btn--icon.ds-btn--md { padding: 0; width: 38px; }
+.ds-btn--icon.ds-btn--lg { padding: 0; width: 46px; }
+
+/* ---------- variants ---------- */
+.ds-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-on);
+}
+.ds-btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.ds-btn--primary:active:not(:disabled) {
+  background: var(--accent-active);
+  border-color: var(--accent-active);
+}
+
+.ds-btn--secondary {
+  background: var(--surface);
+  border-color: var(--rule-strong);
+  color: var(--ink);
+}
+.ds-btn--secondary:hover:not(:disabled) {
+  background: var(--surface-sunken);
+  border-color: var(--ink-mute);
+}
+
+.ds-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-mid);
+}
+.ds-btn--ghost:hover:not(:disabled) {
+  background: var(--surface-sunken);
+  color: var(--ink);
+}
+
+.ds-btn--danger {
+  background: var(--critical);
+  border-color: var(--critical);
+  color: #fff;
+}
+.ds-btn--danger:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.ds-btn--link {
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent);
+  padding-left: 0;
+  padding-right: 0;
+  min-height: 0;
+  text-decoration: underline;
+}
+.ds-btn--link:hover:not(:disabled) {
+  color: var(--accent-hover);
+}
+
+/* ---------- loading ----------
+   The label is hidden rather than removed, so the button keeps its
+   intrinsic width and the layout does not shift. */
+.ds-btn.is-loading .ds-btn__content {
+  visibility: hidden;
+}
+
+.ds-btn__spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--r-full);
+  animation: ds-spin 600ms linear infinite;
+}
+
+@keyframes ds-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Reduced motion: a static ring rather than a spin. */
+@media (prefers-reduced-motion: reduce) {
+  .ds-btn__spinner {
+    animation: none;
+    border-right-color: currentColor;
+    opacity: 0.5;
+  }
+}

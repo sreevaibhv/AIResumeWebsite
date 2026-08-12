@@ -1,0 +1,114 @@
+/* ============================================================
+   AnalyzePage
+   ============================================================ */
+
+.analyze {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+/* Two columns from the laptop breakpoint up — the resume and the job
+   description are read against each other, so they belong side by side
+   wherever there is room. */
+.analyze__inputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--grid-gutter);
+  align-items: start;
+}
+
+.analyze__col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+/* ---------- dropzone ---------- */
+
+.analyze__drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  text-align: center;
+  padding: var(--s-6) var(--s-4);
+  border: 1px dashed var(--rule-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--ink-mute);
+  transition: border-color var(--t-fast) var(--ease),
+              background-color var(--t-fast) var(--ease);
+}
+
+.analyze__drop.is-dragging {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.analyze__file {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--good-border);
+  background: var(--good-wash);
+  border-radius: var(--r-md);
+  color: var(--good);
+}
+
+.analyze__file-meta {
+  flex: 1;
+  min-width: 0;
+}
+.analyze__file-meta .ds-body-sm {
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- targeting ---------- */
+
+.analyze__targeting {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--grid-gutter);
+}
+
+.analyze__fresher {
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--rule-soft);
+}
+
+.analyze__targeting-note {
+  margin-top: var(--s-2);
+}
+
+/* ---------- submit ---------- */
+
+.analyze__submit {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+.analyze__submit .ds-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chip-gap);
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 1023px) {
+  .analyze__inputs { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 639px) {
+  .analyze__targeting { grid-template-columns: minmax(0, 1fr); }
+  .analyze__submit { flex-direction: column; align-items: stretch; }
+  .analyze__submit .ds-btn { width: 100%; }
+  .analyze__submit .ds-caption { justify-content: center; }
+}

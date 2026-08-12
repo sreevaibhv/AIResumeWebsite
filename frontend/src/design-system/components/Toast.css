@@ -1,0 +1,94 @@
+/* ============================================================
+   Toast
+   ============================================================ */
+
+.ds-toasts {
+  position: fixed;
+  right: var(--s-5);
+  bottom: var(--s-5);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  pointer-events: none;
+  max-width: min(380px, calc(100vw - var(--s-8)));
+}
+
+.ds-toasts__region {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.ds-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--ink-mute);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-md);
+  pointer-events: auto;
+  animation: ds-toast-in var(--t-base) var(--ease);
+}
+
+.ds-toast--good     { border-left-color: var(--good); }
+.ds-toast--warn     { border-left-color: var(--warn); }
+.ds-toast--critical { border-left-color: var(--critical); }
+.ds-toast--info     { border-left-color: var(--accent); }
+
+.ds-toast--good     .ds-toast__icon { color: var(--good); }
+.ds-toast--warn     .ds-toast__icon { color: var(--warn); }
+.ds-toast--critical .ds-toast__icon { color: var(--critical); }
+.ds-toast--info     .ds-toast__icon { color: var(--accent); }
+
+.ds-toast__icon { flex: 0 0 auto; margin-top: 1px; }
+
+.ds-toast__body { flex: 1; min-width: 0; }
+
+.ds-toast__message {
+  font-size: var(--fs-body-sm);
+  line-height: var(--lh-body-sm);
+  color: var(--ink);
+  font-weight: var(--fw-medium);
+}
+
+.ds-toast__desc {
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--ink-mid);
+  margin-top: 2px;
+}
+
+.ds-toast__dismiss {
+  flex: 0 0 auto;
+  background: none;
+  border: 0;
+  color: var(--ink-mute);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.ds-toast__dismiss:hover { color: var(--ink); }
+
+@keyframes ds-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Full width along the bottom on a phone, above the bottom nav. */
+@media (max-width: 767px) {
+  .ds-toasts {
+    right: var(--s-3);
+    left: var(--s-3);
+    bottom: calc(var(--s-3) + 64px);
+    max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-toast { animation: none; }
+}

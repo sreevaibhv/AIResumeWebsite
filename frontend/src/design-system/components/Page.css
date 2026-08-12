@@ -1,0 +1,109 @@
+/* ============================================================
+   Page · Section · Grid · Split
+   ============================================================ */
+
+.ds-page {
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--s-6) var(--page-pad) var(--s-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--section-gap);
+}
+
+/* The measure the content is allowed to occupy. Replaces the 480px
+   cap that used to be hardcoded in each screen. */
+.ds-page--narrow  { max-width: 560px; }
+.ds-page--default { max-width: 940px; }
+.ds-page--wide    { max-width: 1200px; }
+.ds-page--full    { max-width: none; }
+
+.ds-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+
+.ds-page__headtext {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  min-width: 0;
+}
+
+.ds-page__subtitle {
+  font-size: var(--fs-body-sm);
+  line-height: var(--lh-body-sm);
+  color: var(--ink-mid);
+  max-width: 62ch;
+}
+
+.ds-page__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex: 0 0 auto;
+}
+
+/* ---------- Section ---------- */
+
+.ds-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.ds-section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.ds-section__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+/* ---------- Grid ---------- */
+
+.ds-grid {
+  display: grid;
+  min-width: 0;
+}
+.ds-grid > * { min-width: 0; }
+
+/* ---------- Split ---------- */
+
+.ds-split {
+  display: grid;
+  gap: var(--grid-gutter);
+  grid-template-columns: var(--side-w, 320px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.ds-split--side-first .ds-split__side { order: -1; }
+
+.ds-split__side,
+.ds-split__main { min-width: 0; }
+
+/* One column below the laptop breakpoint. The side rail goes first,
+   because on the report it holds the score — which must stay above the
+   detail on a narrow screen. */
+@media (max-width: 1023px) {
+  .ds-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ds-split__side { order: -1; }
+}
+
+/* On a phone the fixed bottom nav would otherwise cover the last
+   element in the page. */
+@media (max-width: 767px) {
+  .ds-page {
+    padding-bottom: calc(var(--s-8) + 56px);
+  }
+}

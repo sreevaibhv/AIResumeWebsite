@@ -1,0 +1,113 @@
+/* ============================================================
+   Modal
+   ============================================================ */
+
+.ds-modal__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: rgba(14, 17, 22, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-5);
+  animation: ds-fade-in var(--t-fast) var(--ease);
+}
+
+.ds-modal {
+  width: 100%;
+  max-height: calc(100vh - var(--s-8));
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-lg);
+  animation: ds-modal-in var(--t-base) var(--ease);
+}
+.ds-modal:focus { outline: none; }
+
+.ds-modal--sm { max-width: 400px; }
+.ds-modal--md { max-width: 560px; }
+.ds-modal--lg { max-width: 820px; }
+
+.ds-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-5) var(--s-5) var(--s-3);
+}
+
+.ds-modal__desc {
+  margin-top: var(--s-1);
+  font-size: var(--fs-body-sm);
+  line-height: var(--lh-body-sm);
+  color: var(--ink-mid);
+}
+
+.ds-modal__close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: 0;
+  border-radius: var(--r-sm);
+  color: var(--ink-mute);
+  cursor: pointer;
+}
+.ds-modal__close:hover {
+  background: var(--surface-sunken);
+  color: var(--ink);
+}
+
+.ds-modal__body {
+  padding: 0 var(--s-5) var(--s-5);
+  overflow-y: auto;
+  font-size: var(--fs-body-sm);
+  line-height: var(--lh-body-sm);
+  color: var(--ink-mid);
+}
+
+.ds-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-5) var(--s-5);
+  border-top: 1px solid var(--rule-soft);
+}
+
+@keyframes ds-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes ds-modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.99); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Full-height sheet on a phone; actions stack. */
+@media (max-width: 639px) {
+  .ds-modal__overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+  .ds-modal {
+    max-width: none;
+    max-height: 92vh;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+  }
+  .ds-modal__footer {
+    flex-direction: column-reverse;
+  }
+  .ds-modal__footer > * { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-modal__overlay,
+  .ds-modal { animation: none; }
+}

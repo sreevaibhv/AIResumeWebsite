@@ -1,0 +1,107 @@
+/* ============================================================
+   Badges — provenance, priority, verification, confidence
+   ============================================================ */
+
+.ds-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  padding: 2px 6px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.ds-badge__icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.ds-badge--neutral  { background: var(--surface);       color: var(--ink-mute); border-color: var(--rule); }
+.ds-badge--accent   { background: var(--accent-wash);   color: var(--accent); }
+.ds-badge--good     { background: var(--good-wash);     color: var(--good); }
+.ds-badge--warn     { background: var(--warn-wash);     color: var(--warn); }
+.ds-badge--critical { background: var(--critical-wash); color: var(--critical); }
+
+/* Provenance. LOCAL is deliberately quiet — arithmetic is the default
+   and should not shout; MODEL is tinted because it is the claim that
+   carries uncertainty. */
+.ds-badge--local { background: var(--surface);     color: var(--ink-mute); border-color: var(--rule); }
+.ds-badge--model { background: var(--accent-wash); color: var(--accent); }
+
+/* ============================================================
+   ConfidenceMark
+   ============================================================ */
+
+.ds-conf {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.ds-conf__bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 10px;
+}
+
+.ds-conf__bar {
+  width: 3px;
+  background: var(--rule-strong);
+  border-radius: 1px;
+}
+.ds-conf__bar:nth-child(1) { height: 4px; }
+.ds-conf__bar:nth-child(2) { height: 7px; }
+.ds-conf__bar:nth-child(3) { height: 10px; }
+
+.ds-conf--high   .ds-conf__bar.is-on { background: var(--good); }
+.ds-conf--medium .ds-conf__bar.is-on { background: var(--warn); }
+.ds-conf--low    .ds-conf__bar.is-on { background: var(--critical); }
+
+/* ============================================================
+   LockedBlock
+   ============================================================ */
+
+.ds-locked {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  align-items: flex-start;
+  padding: var(--card-pad);
+  border: 1px dashed var(--rule-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+}
+
+.ds-locked__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+.ds-locked__summary {
+  font-size: var(--fs-body-sm);
+  color: var(--ink-mid);
+}
+
+/* The preview is dimmed, not blurred — the user can still read enough
+   to judge whether it is worth paying for. */
+.ds-locked__preview {
+  width: 100%;
+  opacity: 0.55;
+  pointer-events: none;
+  user-select: none;
+}

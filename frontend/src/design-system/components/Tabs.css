@@ -1,0 +1,78 @@
+/* ============================================================
+   Tabs
+   ============================================================ */
+
+.ds-tabs__strip {
+  display: flex;
+  gap: var(--s-5);
+  border-bottom: 1px solid var(--rule);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.ds-tabs__strip::-webkit-scrollbar { display: none; }
+
+.ds-tabs__tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 11px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--ink-mute);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--t-fast) var(--ease),
+              border-color var(--t-fast) var(--ease);
+}
+
+.ds-tabs__tab:hover:not(.is-disabled) { color: var(--ink); }
+
+.ds-tabs__tab.is-active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: var(--fw-semibold);
+}
+
+.ds-tabs__tab.is-disabled {
+  color: var(--ink-disabled);
+  cursor: not-allowed;
+}
+
+.ds-tabs__count {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: var(--r-full);
+  background: var(--surface-sunken);
+  color: var(--ink-mute);
+}
+.ds-tabs__tab.is-active .ds-tabs__count {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.ds-tabs__panel {
+  padding-top: var(--s-4);
+}
+.ds-tabs__panel:focus { outline: none; }
+.ds-tabs__panel:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+/* On a phone the strip is edge-to-edge and scrolls; the fade hints
+   that there is more to the right. */
+@media (max-width: 767px) {
+  .ds-tabs__strip {
+    gap: var(--s-4);
+    padding-right: var(--s-6);
+    mask-image: linear-gradient(to right, #000 85%, transparent 100%);
+  }
+}

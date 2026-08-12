@@ -1,0 +1,178 @@
+/* ============================================================
+   Form controls
+   ============================================================ */
+
+.ds-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-bottom: var(--field-gap);
+}
+.ds-field:last-child { margin-bottom: 0; }
+
+.ds-field__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.ds-field__label { margin: 0; }
+
+.ds-field__required { color: var(--critical); }
+
+.ds-field__hint {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  letter-spacing: var(--tr-data);
+  color: var(--ink-mute);
+}
+
+.ds-field__error {
+  margin: 0;
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--critical);
+}
+
+/* ---------- text inputs ---------- */
+
+.ds-input {
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-sm);
+  padding: 9px 12px;
+  min-height: 38px;
+  transition: border-color var(--t-fast) var(--ease),
+              box-shadow var(--t-fast) var(--ease);
+}
+
+.ds-input::placeholder { color: var(--ink-disabled); }
+
+.ds-input:hover:not(:disabled):not(:focus) { border-color: var(--ink-mute); }
+
+.ds-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+
+.ds-input:disabled {
+  background: var(--surface-sunken);
+  color: var(--ink-disabled);
+  cursor: not-allowed;
+}
+
+.ds-input.is-invalid,
+.ds-field.is-invalid .ds-input {
+  border-color: var(--critical);
+}
+.ds-input.is-invalid:focus,
+.ds-field.is-invalid .ds-input:focus {
+  box-shadow: 0 0 0 3px var(--critical-wash);
+}
+
+.ds-textarea {
+  min-height: 120px;
+  resize: vertical;
+  line-height: var(--lh-body);
+}
+
+.ds-select {
+  appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2379838F' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+/* ---------- checkbox / radio ---------- */
+
+.ds-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+}
+
+.ds-choice__input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 3px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.ds-choice__label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+}
+
+.ds-choice__title {
+  font-size: var(--fs-body-sm);
+  line-height: var(--lh-body-sm);
+  color: var(--ink);
+}
+
+.ds-choice__desc {
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--ink-mute);
+}
+
+/* ---------- segmented choice group ---------- */
+
+.ds-choicegroup {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: var(--s-2);
+}
+
+@media (max-width: 639px) {
+  .ds-choicegroup {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+.ds-choicegroup__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: var(--tr-data);
+  color: var(--ink-mid);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-sm);
+  padding: 9px 10px;
+  min-height: 38px;
+  cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease),
+              border-color var(--t-fast) var(--ease),
+              color var(--t-fast) var(--ease);
+}
+
+.ds-choicegroup__item:hover { border-color: var(--ink-mute); }
+
+.ds-choicegroup__item.is-selected {
+  background: var(--accent-wash);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: var(--fw-semibold);
+}
+
+/* The visually-hidden input still receives focus — surface it on the label. */
+.ds-choicegroup__item:has(:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}

@@ -1,0 +1,86 @@
+/* ============================================================
+   AppShell · PublicShell
+   ============================================================ */
+
+.app-shell {
+  display: flex;
+  align-items: flex-start;
+  min-height: 100vh;
+  background: var(--paper);
+}
+
+.app-shell__body {
+  flex: 1;
+  min-width: 0;              /* without this, wide tables push the shell */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-shell__main {
+  flex: 1;
+  min-width: 0;
+}
+.app-shell__main:focus { outline: none; }
+
+/* Skip link — the first thing in the tab order, visible only when
+   focused. Keyboard users should not have to tab through the whole
+   sidebar to reach the report. */
+.app-shell__skip {
+  position: absolute;
+  left: var(--s-3);
+  top: -60px;
+  z-index: var(--z-toast);
+  padding: 10px 14px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-decoration: none;
+  transition: top var(--t-fast) var(--ease);
+}
+.app-shell__skip:focus {
+  top: var(--s-3);
+  text-decoration: none;
+}
+
+/* ---------- PublicShell ---------- */
+
+.public-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+}
+
+.public-shell__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--page-pad);
+  min-height: 56px;
+}
+
+.public-shell__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.public-shell__main {
+  flex: 1;
+  min-width: 0;
+}
+.public-shell__main:focus { outline: none; }
+
+.public-shell__footer {
+  border-top: 1px solid var(--rule);
+  padding: var(--s-5) var(--page-pad);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--ink-mute);
+}

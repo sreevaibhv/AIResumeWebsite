@@ -1,0 +1,148 @@
+/* ============================================================
+   PARSE// — Signal design tokens
+   Single source of truth. No component may hardcode a value
+   that exists here.
+
+   Breakpoints cannot be CSS custom properties inside media
+   queries; they are declared here as documentation and mirrored
+   in tokens.js for JS use. Keep the two in sync.
+
+       --bp-sm    640    phone → large phone
+       --bp-md    768    tablet
+       --bp-lg   1024    laptop — sidebar appears
+       --bp-xl   1280    desktop — two-column analysis
+   ============================================================ */
+
+:root {
+  /* ---------- colour: primary ---------- */
+  --accent:            #3A2BD9;
+  --accent-hover:      #2E21B0;
+  --accent-active:     #251A8C;
+  --accent-wash:       #EEECFC;
+  --accent-on:         #FFFFFF;
+
+  /* ---------- colour: surfaces ---------- */
+  --paper:             #F7F8F9;
+  --surface:           #FFFFFF;
+  --surface-2:         #FBFCFD;
+  --surface-sunken:    #F2F4F6;
+  --rule:              #E2E6EA;
+  --rule-soft:         #EDF0F2;
+  --rule-strong:       #CFD6DD;
+
+  /* ---------- colour: text ---------- */
+  --ink:               #0E1116;
+  --ink-mid:           #3D4650;
+  --ink-mute:          #79838F;
+  --ink-disabled:      #AEB6BE;
+  --ink-on-accent:     #FFFFFF;
+
+  /* ---------- colour: semantic ---------- */
+  --good:              #12735A;
+  --good-wash:         #E9F4F1;
+  --good-border:       #BFDED4;
+
+  --warn:              #B07103;
+  --warn-wash:         #FCF4E6;
+  --warn-border:       #EBD9B0;
+
+  --critical:          #C4382A;
+  --critical-wash:     #FBEDEB;
+  --critical-border:   #F0C9C3;
+
+  /* ---------- typography: families ---------- */
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ---------- typography: scale ---------- */
+  --fs-display:     40px;   --lh-display:     1.1;
+  --fs-h1:          28px;   --lh-h1:          1.2;
+  --fs-h2:          21px;   --lh-h2:          1.3;
+  --fs-h3:          16px;   --lh-h3:          1.4;
+  --fs-body:        15px;   --lh-body:        1.6;
+  --fs-body-sm:     13.5px; --lh-body-sm:     1.55;
+  --fs-caption:     12.5px; --lh-caption:     1.5;
+  --fs-label:       10px;   --lh-label:       1.4;
+  --fs-data:        12px;   --lh-data:        1.5;
+  --fs-score-sm:    18px;
+  --fs-score-md:    30px;
+  --fs-score-xl:    56px;
+
+  --fw-regular: 400;
+  --fw-medium:  500;
+  --fw-semibold: 600;
+
+  --tr-display:  -0.03em;
+  --tr-heading:  -0.02em;
+  --tr-tight:    -0.005em;
+  --tr-normal:   0;
+  --tr-label:    0.12em;
+  --tr-data:     0.02em;
+
+  /* ---------- spacing ---------- */
+  --s-1:   4px;
+  --s-2:   8px;
+  --s-3:  12px;
+  --s-4:  16px;
+  --s-5:  24px;
+  --s-6:  32px;
+  --s-7:  48px;
+  --s-8:  64px;
+  --s-9:  96px;
+
+  /* contextual spacing — overridden per breakpoint in base.css */
+  --page-pad:      32px;
+  --grid-gutter:   24px;
+  --card-pad:      16px;
+  --card-pad-sm:   12px;
+  --section-gap:   32px;
+  --field-gap:     14px;
+  --chip-gap:       6px;
+
+  /* ---------- radius ---------- */
+  --r-sm:   6px;   /* chips, badges, inputs, buttons */
+  --r-md:   8px;   /* small cards */
+  --r-lg:  12px;   /* cards, panels */
+  --r-xl:  16px;   /* modals, drawers */
+  --r-full: 999px; /* pills, avatars */
+
+  /* ---------- elevation ----------
+     Hierarchy comes from borders and surface tone.
+     Shadows are for things that genuinely float. */
+  --shadow-sm: 0 1px 2px rgba(14, 17, 22, 0.05);
+  --shadow-md: 0 4px 12px rgba(14, 17, 22, 0.08);
+  --shadow-lg: 0 12px 32px rgba(14, 17, 22, 0.12);
+
+  /* ---------- motion ---------- */
+  --t-fast: 120ms;
+  --t-base: 200ms;
+  --t-slow: 400ms;
+  --ease:   cubic-bezier(0.2, 0, 0.2, 1);
+
+  /* ---------- z-index ---------- */
+  --z-base:      0;
+  --z-sticky:   100;
+  --z-sidebar:  200;
+  --z-dropdown: 300;
+  --z-overlay:  400;
+  --z-modal:    500;
+  --z-toast:    600;
+
+  /* ---------- focus ---------- */
+  --focus-ring: 2px solid var(--accent);
+  --focus-offset: 2px;
+}
+
+@media (max-width: 1023px) {
+  :root {
+    --page-pad: 24px;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --page-pad:    16px;
+    --grid-gutter: 16px;
+    --section-gap: 24px;
+  }
+}

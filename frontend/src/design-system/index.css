@@ -1,0 +1,37 @@
+/* ============================================================
+   PARSE// design system — single stylesheet entry point.
+   Import once, from main.jsx.
+
+   Fonts are self-hosted via @fontsource: the woff2 files ship in
+   node_modules and Vite bundles them. There is no runtime request
+   to a font CDN, which is what the previous Google Fonts @import
+   did — and it failed silently, leaving the app on system fonts
+   with no visible signal.
+
+   Only the weights the type scale actually uses are loaded:
+   400 regular, 500 medium (labels), 600 semibold (headings/scores).
+   ============================================================ */
+
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
+
+@import "./tokens.css";
+@import "./base.css";
+
+@import "./components/Button.css";
+@import "./components/Field.css";
+@import "./components/Card.css";
+@import "./components/ScoreRing.css";
+@import "./components/Navigation.css";
+@import "./components/Page.css";
+@import "./components/Chip.css";
+@import "./components/Badge.css";
+@import "./components/Tabs.css";
+@import "./components/Skeleton.css";
+@import "./components/Alert.css";
+@import "./components/Toast.css";
+@import "./components/Modal.css";

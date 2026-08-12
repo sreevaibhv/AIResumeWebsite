@@ -1,0 +1,73 @@
+/* ============================================================
+   Card + Divider
+   ============================================================ */
+
+.ds-card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  text-align: left;
+  width: 100%;
+}
+
+.ds-card--pad-none { padding: 0; }
+.ds-card--pad-sm   { padding: var(--card-pad-sm); }
+.ds-card--pad-md   { padding: var(--card-pad); }
+.ds-card--pad-lg   { padding: var(--s-5); }
+
+/* ---------- tones ---------- */
+.ds-card--accent   { background: var(--accent-wash);   border-color: var(--accent); }
+.ds-card--good     { background: var(--good-wash);     border-color: var(--good-border); }
+.ds-card--warn     { background: var(--warn-wash);     border-color: var(--warn-border); }
+.ds-card--critical { background: var(--critical-wash); border-color: var(--critical-border); }
+
+/* ---------- interactive ---------- */
+.ds-card--interactive {
+  display: block;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color var(--t-fast) var(--ease),
+              background-color var(--t-fast) var(--ease);
+}
+.ds-card--interactive:hover {
+  border-color: var(--rule-strong);
+  background: var(--surface-2);
+}
+.ds-card--interactive:active {
+  background: var(--surface-sunken);
+}
+
+/* ---------- header ---------- */
+.ds-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-4);
+  margin-bottom: var(--s-3);
+}
+.ds-card__headtext {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ds-card__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex: 0 0 auto;
+}
+
+/* ---------- divider ---------- */
+.ds-divider {
+  background: var(--rule);
+  border: 0;
+  height: 1px;
+  width: 100%;
+}
+.ds-divider--v {
+  width: 1px;
+  height: auto;
+  align-self: stretch;
+}

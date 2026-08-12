@@ -1,0 +1,141 @@
+/* ============================================================
+   Alert · EmptyState · ErrorState
+   ============================================================ */
+
+.ds-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+}
+
+.ds-alert__icon {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.ds-alert__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  min-width: 0;
+  flex: 1;
+}
+
+.ds-alert__title {
+  font-size: var(--fs-body-sm);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-body-sm);
+}
+
+.ds-alert__text {
+  font-size: var(--fs-body-sm);
+  line-height: var(--lh-body-sm);
+  color: var(--ink-mid);
+}
+
+.ds-alert__actions {
+  display: flex;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  margin-top: var(--s-2);
+}
+
+.ds-alert__dismiss {
+  flex: 0 0 auto;
+  background: none;
+  border: 0;
+  font-size: 16px;
+  line-height: 1;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.ds-alert__dismiss:hover { opacity: 1; }
+
+.ds-alert--info     { background: var(--accent-wash);   border-color: transparent;          color: var(--accent); }
+.ds-alert--good     { background: var(--good-wash);     border-color: var(--good-border);   color: var(--good); }
+.ds-alert--warn     { background: var(--warn-wash);     border-color: var(--warn-border);   color: var(--warn); }
+.ds-alert--critical { background: var(--critical-wash); border-color: var(--critical-border); color: var(--critical); }
+
+/* The title takes the tone colour; body text stays readable. */
+.ds-alert .ds-alert__title { color: inherit; }
+
+/* ============================================================
+   EmptyState
+   ============================================================ */
+
+.ds-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--s-2);
+  padding: var(--s-7) var(--s-5);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+}
+
+.ds-empty__icon {
+  display: inline-flex;
+  color: var(--ink-mute);
+  margin-bottom: var(--s-1);
+}
+
+.ds-empty__text {
+  font-size: var(--fs-body-sm);
+  line-height: var(--lh-body-sm);
+  color: var(--ink-mid);
+  max-width: 44ch;
+}
+
+.ds-empty__action { margin-top: var(--s-3); }
+
+/* ============================================================
+   ErrorState
+   ============================================================ */
+
+.ds-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--s-2);
+  padding: var(--s-7) var(--s-5);
+  background: var(--surface);
+  border: 1px solid var(--critical-border);
+  border-radius: var(--r-lg);
+}
+
+.ds-error__icon { color: var(--critical); margin-bottom: var(--s-1); }
+
+.ds-error__text {
+  font-size: var(--fs-body-sm);
+  line-height: var(--lh-body-sm);
+  color: var(--ink-mid);
+  max-width: 48ch;
+}
+
+/* "Your resume is safe and your credit has not been used" — the
+   sentence users actually need. Given its own weight. */
+.ds-error__reassurance {
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--good);
+  background: var(--good-wash);
+  border-radius: var(--r-sm);
+  padding: var(--s-2) var(--s-3);
+  max-width: 48ch;
+}
+
+.ds-error__actions {
+  display: flex;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: var(--s-3);
+}

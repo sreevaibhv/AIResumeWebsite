@@ -1,0 +1,259 @@
+/* ============================================================
+   Shell chrome — Sidebar · TopBar · BottomNav
+   ============================================================ */
+
+/* ---------- Sidebar ---------- */
+
+.ds-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  flex: 0 0 240px;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-right: 1px solid var(--rule);
+  z-index: var(--z-sidebar);
+  transition: width var(--t-base) var(--ease), flex-basis var(--t-base) var(--ease);
+}
+
+.ds-sidebar.is-collapsed {
+  flex-basis: 64px;
+  width: 64px;
+}
+
+.ds-sidebar__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  padding: var(--s-4) var(--s-3);
+  min-height: 60px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.ds-sidebar.is-collapsed .ds-sidebar__head {
+  justify-content: center;
+}
+
+.ds-sidebar__brand { min-width: 0; }
+
+.ds-sidebar__toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: none;
+  border: 0;
+  border-radius: var(--r-sm);
+  color: var(--ink-mute);
+  cursor: pointer;
+}
+.ds-sidebar__toggle:hover {
+  background: var(--surface-sunken);
+  color: var(--ink);
+}
+
+.ds-sidebar__nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--s-3) var(--s-2);
+}
+.ds-sidebar__nav ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ds-sidebar__item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--ink-mid);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color var(--t-fast) var(--ease),
+              color var(--t-fast) var(--ease);
+}
+.ds-sidebar__item:hover:not(.is-disabled) {
+  background: var(--surface-sunken);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+/* Active state is carried by weight and a tinted ground, not colour
+   alone — the accent text is reinforced by the background. */
+.ds-sidebar__item.is-active {
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-weight: var(--fw-semibold);
+}
+
+.ds-sidebar__item.is-disabled {
+  color: var(--ink-disabled);
+  cursor: not-allowed;
+}
+
+.ds-sidebar__icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+}
+
+.ds-sidebar__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ds-sidebar__soon {
+  margin-left: auto;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  background: var(--surface-sunken);
+  border-radius: var(--r-sm);
+  padding: 1px 5px;
+}
+
+.ds-sidebar.is-collapsed .ds-sidebar__item {
+  justify-content: center;
+  padding: 9px 0;
+}
+
+.ds-sidebar__footer {
+  padding: var(--s-3);
+  border-top: 1px solid var(--rule-soft);
+}
+
+/* Between tablet and laptop the sidebar is always a rail — there is
+   not enough width to spend 240px on labels. */
+@media (max-width: 1023px) {
+  .ds-sidebar { flex-basis: 64px; width: 64px; }
+  .ds-sidebar__toggle { display: none; }
+  .ds-sidebar__brand { display: none; }
+  .ds-sidebar__head { justify-content: center; }
+  .ds-sidebar__item { justify-content: center; padding: 9px 0; }
+  .ds-sidebar__label,
+  .ds-sidebar__soon { display: none; }
+}
+
+/* Below tablet the sidebar is replaced by bottom navigation. */
+@media (max-width: 767px) {
+  .ds-sidebar { display: none; }
+}
+
+/* ---------- TopBar ---------- */
+
+.ds-topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: 56px;
+  padding: 0 var(--page-pad);
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Never shrinks — a clipped wordmark reads as a broken page. */
+.ds-topbar__brand {
+  display: none;
+  flex: 0 0 auto;
+}
+
+.ds-topbar__title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.ds-topbar__crumb {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink-mute);
+  text-decoration: none;
+}
+.ds-topbar__crumb:hover { color: var(--accent); }
+
+.ds-topbar__heading {
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-semibold);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex: 0 0 auto;
+}
+
+/* On a phone the top bar carries the wordmark, since the sidebar is gone. */
+@media (max-width: 767px) {
+  .ds-topbar__brand { display: block; }
+}
+
+/* ---------- BottomNav ---------- */
+
+.ds-bottomnav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-sidebar);
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--rule);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.ds-bottomnav__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 4px;
+  min-height: 56px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.05em;
+  color: var(--ink-mute);
+  text-decoration: none;
+  text-align: center;
+}
+.ds-bottomnav__item:hover { text-decoration: none; }
+
+.ds-bottomnav__item.is-active {
+  color: var(--accent);
+  font-weight: var(--fw-semibold);
+}
+
+.ds-bottomnav__item.is-disabled {
+  color: var(--ink-disabled);
+  cursor: not-allowed;
+}
+
+.ds-bottomnav__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  white-space: nowrap;
+}

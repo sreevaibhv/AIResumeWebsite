@@ -1,0 +1,207 @@
+// PARSE// — Prisma schema
+// Master Plan §7.1. Base models (User, Scan, ResumeVersion, InterviewPrepSet,
+// RefreshToken, SkillEmbedding) plus the four the source plan omitted:
+// CreditLedger, UsageLog, PricingVariant, Transaction.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+// Connection URL lives in prisma.config.ts (CLI/migrate) and is passed to
+// PrismaClient via a driver adapter at runtime (common/prisma.service.ts) —
+// Prisma 7 removed `url` from the schema file. See prisma.config.ts.
+datasource db {
+  provider   = "postgresql"
+  extensions = [vector]
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String? // null for Google-SSO-only accounts
+  googleId     String?  @unique
+  name         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  scans         Scan[]
+  refreshTokens RefreshToken[]
+  ledgerEntries CreditLedger[]
+  transactions  Transaction[]
+
+  @@index([email])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String // never store the raw token
+  revokedAt DateTime?
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Core product
+// ---------------------------------------------------------------------------
+
+enum Tier {
+  STARTUP
+  MNC
+  PSU
+  GOVERNMENT
+}
+
+enum ScanStatus {
+  PENDING
+  RUNNING
+  COMPLETE
+  FAILED
+}
+
+model Scan {
+  id          String     @id @default(cuid())
+  userId      String?
+  user        User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  status      ScanStatus @default(PENDING)
+  cacheKey    String // hash(resume + jd + tier + fresherMode) — FR-6, must include options
+  resumeText  String
+  jdText      String
+  tier        Tier       @default(STARTUP)
+  fresherMode Boolean    @default(false)
+
+  // Pipeline output, persisted as JSON — mirrors ScanPipeline's return shape.
+  resumeParsed Json?
+  jdParsed     Json?
+  score        Json? // { total, naukriScore, genericScore, categories[] }
+  roadmap      Json?
+  naukri       Json?
+  // Raw agent outputs the UI needs beyond the aggregated score: deterministic
+  // keyword findings, quality/weak-bullet findings, semantic match findings,
+  // tier calibration notes. Bundled rather than four more columns.
+  details      Json?
+
+  resumeVersions ResumeVersion[]
+  interviewPreps InterviewPrepSet[]
+
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([cacheKey])
+  @@index([userId])
+}
+
+model ResumeVersion {
+  id          String   @id @default(cuid())
+  scanId      String
+  scan        Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  kind        String // "original" | "rewritten"
+  content     Json // structured resume JSON
+  diff        Json? // before/after diff, only set on "rewritten"
+  verified    Boolean  @default(false)
+  flagged     Json? // claims VerifyAgent could not trace to the original
+  createdAt   DateTime @default(now())
+
+  @@index([scanId])
+}
+
+model InterviewPrepSet {
+  id        String   @id @default(cuid())
+  scanId    String
+  scan      Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  technical Json
+  hr        Json
+  createdAt DateTime @default(now())
+
+  @@index([scanId])
+}
+
+// ---------------------------------------------------------------------------
+// Vector store — pgvector primary, Qdrant swappable behind VectorStore
+// ---------------------------------------------------------------------------
+
+model SkillEmbedding {
+  id             String                 @id @default(cuid())
+  normalizedTerm String                 @unique // cache key: skills/phrases repeat heavily across users
+  embedding      Unsupported("vector(1536)")
+  createdAt      DateTime               @default(now())
+
+  @@index([normalizedTerm])
+}
+
+// ---------------------------------------------------------------------------
+// Money — §5, §7.1. Append-only ledger, not a mutable balance integer.
+// ---------------------------------------------------------------------------
+
+enum LedgerEntryType {
+  PURCHASE
+  SPEND
+  REFUND
+  EXPIRY
+}
+
+model CreditLedger {
+  id        String          @id @default(cuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      LedgerEntryType
+  amount    Int // positive for purchase/refund, negative for spend/expiry
+  balance   Int // running balance after this entry
+  reason    String // e.g. "scan:<id>", "rewrite:<id>", "purchase:<transactionId>"
+  createdAt DateTime        @default(now())
+
+  @@index([userId])
+}
+
+model PricingVariant {
+  id        String   @id @default(cuid())
+  name      String // "trial" | "standard" | "bulk"
+  priceRupees Int
+  credits   Int
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  transactions Transaction[]
+}
+
+model Transaction {
+  id                String         @id @default(cuid())
+  userId            String
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pricingVariantId  String
+  pricingVariant    PricingVariant @relation(fields: [pricingVariantId], references: [id])
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  gstTreatment      String // "inclusive" | "exclusive" — open decision, §11.3
+  status            String // "created" | "paid" | "failed" | "refunded"
+  createdAt         DateTime       @default(now())
+
+  @@index([userId])
+}
+
+// FR-18 — every LLM call logs model, agent, token usage, cost, latency.
+model UsageLog {
+  id         String   @id @default(cuid())
+  scanId     String?
+  agentName  String
+  provider   String // "anthropic" | "openai" | "gemini"
+  model      String
+  tokensIn   Int
+  tokensOut  Int
+  costUsd    Float
+  latencyMs  Int
+  cacheHit   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([agentName])
+  @@index([scanId])
+}

@@ -1,0 +1,172 @@
+/* ============================================================
+   Base layer — reset, document defaults, typography utilities.
+   Loaded once from design-system/index.css.
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6, p, figure, blockquote {
+  margin: 0;
+}
+
+ul, ol {
+  margin: 0;
+  padding: 0;
+}
+
+img, svg, video, canvas {
+  display: block;
+  max-width: 100%;
+}
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* Visible focus for keyboard users only — WCAG 2.4.7 */
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--r-sm);
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ---------- typography utilities ---------- */
+
+.ds-display {
+  font-size: var(--fs-display);
+  line-height: var(--lh-display);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tr-display);
+  text-wrap: balance;
+}
+.ds-h1 {
+  font-size: var(--fs-h1);
+  line-height: var(--lh-h1);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tr-heading);
+  text-wrap: balance;
+}
+.ds-h2 {
+  font-size: var(--fs-h2);
+  line-height: var(--lh-h2);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tr-heading);
+  text-wrap: balance;
+}
+.ds-h3 {
+  font-size: var(--fs-h3);
+  line-height: var(--lh-h3);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tr-tight);
+}
+.ds-body    { font-size: var(--fs-body);    line-height: var(--lh-body); }
+.ds-body-sm { font-size: var(--fs-body-sm); line-height: var(--lh-body-sm); }
+.ds-caption { font-size: var(--fs-caption); line-height: var(--lh-caption); color: var(--ink-mute); }
+
+/* The label is the product's structural voice — mono, uppercase, tracked. */
+.ds-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-label);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.ds-data {
+  font-family: var(--font-mono);
+  font-size: var(--fs-data);
+  line-height: var(--lh-data);
+  letter-spacing: var(--tr-data);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Scores are the loudest numbers in the product. */
+.ds-score-sm,
+.ds-score-md,
+.ds-score-xl {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ds-score-sm { font-size: var(--fs-score-sm); letter-spacing: var(--tr-heading); }
+.ds-score-md { font-size: var(--fs-score-md); letter-spacing: var(--tr-heading); }
+.ds-score-xl { font-size: var(--fs-score-xl); letter-spacing: var(--tr-display); }
+
+/* ---------- colour utilities ---------- */
+.ds-ink      { color: var(--ink); }
+.ds-ink-mid  { color: var(--ink-mid); }
+.ds-ink-mute { color: var(--ink-mute); }
+.ds-good     { color: var(--good); }
+.ds-warn     { color: var(--warn); }
+.ds-critical { color: var(--critical); }
+.ds-accent   { color: var(--accent); }
+
+/* ---------- helpers ---------- */
+
+/* Any digits that line up in a column. */
+.ds-tabular { font-variant-numeric: tabular-nums; }
+
+/* Wide content scrolls inside its own box; the page body never does. */
+.ds-scroll-x {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* Available to screen readers, invisible on screen. */
+.ds-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

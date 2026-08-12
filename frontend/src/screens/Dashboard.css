@@ -1,0 +1,41 @@
+/* ============================================================
+   Dashboard
+   ============================================================ */
+
+.dash__next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+.dash__next > div:first-child { flex: 1 1 260px; min-width: 0; }
+
+.dash__row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+
+.dash__rowmain {
+  flex: 3 1 220px;
+  min-width: 0;
+}
+
+.dash__score {
+  flex: 0 0 auto;
+  min-width: 34px;
+  text-align: right;
+}
+
+.dash__when {
+  flex: 0 0 80px;
+  text-align: right;
+  color: var(--ink-mute);
+}
+
+@media (max-width: 639px) {
+  .dash__next .ds-btn { width: 100%; }
+  .dash__when { flex: 1 1 auto; text-align: left; }
+}
