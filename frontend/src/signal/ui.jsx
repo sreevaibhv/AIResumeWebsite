@@ -2,9 +2,9 @@ import React from "react";
 import { T, scoreColor } from "./tokens";
 
 /* ============================================================
-   Signal — shared primitives.
-   Lifted here per UX-CONTRACT.md so screens other than
-   ATSScanReport can consume them instead of redefining locally.
+   Signal — shared primitives. LEGACY.
+   Superseded by src/design-system/; only SignIn still imports
+   from here, and these retire with that screen. See README.md §10.
    ============================================================ */
 
 export const Eyebrow = ({ children, style }) => (
