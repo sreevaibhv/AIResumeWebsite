@@ -48,6 +48,37 @@ async function callProvider(spec: ModelSpec, prompt: string) {
   }
 }
 
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+
+function isRetryableError(err: unknown): boolean {
+  const status = (err as { status?: unknown } | null)?.status;
+  return typeof status === "number" && RETRYABLE_STATUS.has(status);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Providers occasionally return transient 429/5xx (e.g. Gemini's "high
+ * demand" 503) — without a retry these kill the whole scan on a blip.
+ * Schema-mismatch retries in completeStructured are separate and unaffected.
+ */
+async function callProviderWithRetry(spec: ModelSpec, prompt: string, maxAttempts = 3) {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await callProvider(spec, prompt);
+    } catch (err) {
+      lastErr = err;
+      if (attempt === maxAttempts - 1 || !isRetryableError(err)) throw err;
+      const backoffMs = 500 * 2 ** attempt + Math.random() * 250;
+      await sleep(backoffMs);
+    }
+  }
+  throw lastErr;
+}
+
 /**
  * The one function every agent calls. Master Plan §8.1, step 3.
  *
@@ -64,7 +95,7 @@ export async function completeStructured<S extends ZodType>(
   const spec = resolveModel(agentName, opts.modelOverride);
   const start = Date.now();
 
-  let raw = await callProvider(spec, prompt);
+  let raw = await callProviderWithRetry(spec, prompt);
   let parsed = safeParseJson(raw.text);
   let validated = parsed.ok ? schema.safeParse(parsed.value) : { success: false as const };
 
@@ -75,7 +106,7 @@ export async function completeStructured<S extends ZodType>(
     // One corrective retry — tell the model exactly what was wrong.
     const issue = parsed.ok ? JSON.stringify((validated as z.SafeParseError<unknown>).error?.format?.() ?? "schema mismatch") : parsed.error;
     const correctionPrompt = `${prompt}\n\nYour previous response failed validation: ${issue}\nReturn ONLY valid JSON matching the required shape. No prose, no markdown fences.`;
-    raw = await callProvider(spec, correctionPrompt);
+    raw = await callProviderWithRetry(spec, correctionPrompt);
     tokensIn += raw.tokensIn;
     tokensOut += raw.tokensOut;
     parsed = safeParseJson(raw.text);
