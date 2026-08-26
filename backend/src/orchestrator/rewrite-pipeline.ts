@@ -1,9 +1,7 @@
 import { PrismaClient } from "@prisma/client";
-import { ParsedResume, ParsedJD, RoadmapItem, ScanOptions } from "../agents/types";
+import { ParsedResume, ParsedJD, RoadmapItem, ScanOptions, Tier } from "../agents/types";
 import { runRewriteAgent } from "../agents/rewrite.agent";
 import { runVerifyAgent } from "../agents/verify.agent";
-import { runRecruiterCommentAgent } from "../agents/recruiter-comment.agent";
-import { runInterviewPrepAgent } from "../agents/interview-prep.agent";
 import { ScanPipeline, ScanPipelineResult } from "./scan-pipeline";
 
 export type RewritePipelineResult =
@@ -12,8 +10,6 @@ export type RewritePipelineResult =
       resume: ParsedResume;
       changeSummary: string[];
       rescored: ScanPipelineResult;
-      recruiterComments: Awaited<ReturnType<typeof runRecruiterCommentAgent>>["data"];
-      interviewPrep: Awaited<ReturnType<typeof runInterviewPrepAgent>>["data"];
     }
   | {
       status: "verification_failed";
@@ -36,6 +32,11 @@ export type RewritePipelineResult =
  * call, which passed structured objects into a signature expecting raw text
  * and silently dropped `options`. This uses ScanPipeline.runFromStructured
  * with options threaded through explicitly.
+ *
+ * Spec §4/§7: RecruiterCommentAgent and InterviewPrepAgent used to run
+ * inside the success branch here, on every rewrite, whether or not either
+ * result was ever displayed. Both are now on-demand-only (ScanService),
+ * so this pipeline does exactly one thing: rewrite, verify, rescore.
  */
 export class RewritePipeline {
   constructor(private readonly prisma: PrismaClient) {}
@@ -44,6 +45,7 @@ export class RewritePipeline {
     original: ParsedResume,
     roadmap: RoadmapItem[],
     jd: ParsedJD,
+    tier: Tier,
     options: ScanOptions,
     scanId?: string,
     maxRetries = 2,
@@ -55,18 +57,12 @@ export class RewritePipeline {
 
       if (verification.data.passed) {
         const scanPipeline = new ScanPipeline(this.prisma);
-        const [rescored, recruiterComments, interviewPrep] = await Promise.all([
-          scanPipeline.runFromStructured(rewritten.data.resume, jd, options, scanId),
-          runRecruiterCommentAgent(rewritten.data.resume, jd, scanId),
-          runInterviewPrepAgent(rewritten.data.resume, jd, scanId),
-        ]);
+        const rescored = await scanPipeline.runFromStructured(rewritten.data.resume, jd, tier, options, scanId);
         return {
           status: "verified",
           resume: rewritten.data.resume,
           changeSummary: rewritten.data.changeSummary,
           rescored,
-          recruiterComments: recruiterComments.data,
-          interviewPrep: interviewPrep.data,
         };
       }
 

@@ -12,6 +12,7 @@ import { ScorePanel } from "./panels/ScorePanel";
 import { KeywordsPanel } from "./panels/KeywordsPanel";
 import { QualityPanel } from "./panels/QualityPanel";
 import { FixesPanel } from "./panels/FixesPanel";
+import { PrepPanel } from "./panels/PrepPanel";
 import "./Report.css";
 
 /**
@@ -125,26 +126,39 @@ export default function ReportPage() {
     toast.info("Plans are not live yet", { description: "Credit gating arrives with monetisation." });
   };
 
+  // spec §2.2 — persists the confirmation, then merges the recomputed
+  // verdict (and the confirmations themselves, for the tick state) back
+  // into the local scan so mapScanToReport reflects it immediately.
+  async function handleConfirm(dto) {
+    const verdict = await api.confirmScan(scanId, dto);
+    setScan((prev) => ({ ...prev, verdict, confirmedSkills: dto }));
+    track(EVENTS.keywords_confirmed, { scanId, count: dto.skills?.length ?? 0 });
+  }
+
+  // spec §7 — interview prep is generated on demand, from either the Prep
+  // tab or the Fixes tab's on-demand button; both call this so the Prep
+  // tab and hasPrep flag update together regardless of which fired it.
+  async function handleGeneratePrep() {
+    const prep = await api.generateInterviewPrep(scanId);
+    setScan((prev) => ({ ...prev, interviewPreps: [...(prev.interviewPreps ?? []), prep] }));
+  }
+
   const tabs = [
     { key: "overview", label: "Overview" },
     { key: "score", label: "Score" },
     { key: "keywords", label: "Keywords", count: data.keywords.missing.length || undefined },
     { key: "quality", label: "Quality" },
     { key: "fixes", label: "Fixes", count: data.roadmap.length || undefined },
-    {
-      key: "prep",
-      label: "Prep",
-      disabled: !data.hasPrep,
-      disabledReason: "unlocks after you optimize",
-    },
+    { key: "prep", label: "Prep" },
   ];
 
   const panels = {
-    overview: <OverviewPanel data={data} onFix={goToFixes} onSeeAll={unlock} />,
+    overview: <OverviewPanel data={data} onFix={goToFixes} onSeeAll={unlock} onConfirm={handleConfirm} />,
     score: <ScorePanel data={data} />,
     keywords: <KeywordsPanel data={data} />,
     quality: <QualityPanel data={data} onImprove={goToFixes} />,
-    fixes: <FixesPanel data={data} onUnlock={unlock} />,
+    fixes: <FixesPanel data={data} onUnlock={unlock} onGeneratePrep={handleGeneratePrep} />,
+    prep: <PrepPanel data={data} onGenerate={handleGeneratePrep} />,
   };
 
   return (
@@ -183,6 +197,10 @@ export default function ReportPage() {
             <summary className="ds-h3">All fixes</summary>
             {panels.fixes}
           </details>
+          <details className="report__accordion">
+            <summary className="ds-h3">Interview prep</summary>
+            {panels.prep}
+          </details>
         </div>
       ) : (
         <>
@@ -190,13 +208,6 @@ export default function ReportPage() {
           {Object.entries(panels).map(([key, node]) => (
             <TabPanel key={key} tabKey={key} value={tab} idPrefix="report">{node}</TabPanel>
           ))}
-          <TabPanel tabKey="prep" value={tab} idPrefix="report">
-            <ErrorState
-              title="Interview prep is not ready yet"
-              description="Questions are generated from your gaps during optimisation, so this unlocks once you have optimised this resume."
-              action={<Button onClick={goToFixes}>Go to fixes</Button>}
-            />
-          </TabPanel>
         </>
       )}
     </Page>

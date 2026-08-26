@@ -38,7 +38,8 @@ function when(iso) {
   return then.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
-const TIER_LABEL = { STARTUP: "Startup", MNC: "MNC", PSU: "PSU", GOVERNMENT: "Government" };
+// GOVERNMENT is a legacy value — folded into PSU by TierDetectionAgent.
+const TIER_LABEL = { STARTUP: "Startup", MNC: "MNC", PSU: "PSU", GOVERNMENT: "PSU" };
 
 function Stat({ label, value, note, color }) {
   return (

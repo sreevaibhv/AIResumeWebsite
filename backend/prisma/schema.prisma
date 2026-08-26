@@ -33,6 +33,7 @@ model User {
   refreshTokens RefreshToken[]
   ledgerEntries CreditLedger[]
   transactions  Transaction[]
+  savedResumes  SavedResume[]
 
   @@index([email])
 }
@@ -72,9 +73,11 @@ model Scan {
   userId      String?
   user        User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
   status      ScanStatus @default(PENDING)
-  cacheKey    String // hash(resume + jd + tier + fresherMode) — FR-6, must include options
+  cacheKey    String // hash(resume + jd + fresherMode) — FR-6, must include options
   resumeText  String
   jdText      String
+  // Detected by TierDetectionAgent from the JD, not user-supplied. GOVERNMENT
+  // is retained for legacy rows but no longer written — folded into PSU.
   tier        Tier       @default(STARTUP)
   fresherMode Boolean    @default(false)
 
@@ -88,6 +91,15 @@ model Scan {
   // keyword findings, quality/weak-bullet findings, semantic match findings,
   // tier calibration notes. Bundled rather than four more columns.
   details      Json?
+
+  // §2.2 — must-have keywords + profile links the user confirmed they
+  // actually have: { skills: string[], contact: { linkedin?, github? } }.
+  // Populated by POST /scan/:id/confirm; read by achievable-ceiling and
+  // the improve pipeline's deterministic step.
+  confirmedSkills Json?
+  // §3 — cached verdict payload (verdict, currentScore, projectedScore,
+  // projectedBand, reasons, requiredChanges). Recomputed on confirm.
+  verdict         Json?
 
   resumeVersions ResumeVersion[]
   interviewPreps InterviewPrepSet[]
@@ -109,6 +121,11 @@ model ResumeVersion {
   diff        Json? // before/after diff, only set on "rewritten"
   verified    Boolean  @default(false)
   flagged     Json? // claims VerifyAgent could not trace to the original
+  // BE-2 — the score of the version actually being looked at, not just the
+  // scan's original score. Set on "rewritten" versions by POST /scan/:id/improve.
+  beforeScore Int?
+  afterScore  Int?
+  scoreDelta  Json? // per-category earned delta, same keys as ScoreResult.categories
   createdAt   DateTime @default(now())
 
   @@index([scanId])
@@ -125,15 +142,34 @@ model InterviewPrepSet {
   @@index([scanId])
 }
 
+// spec §6 — flat, standalone, user-saved resume library. No parent entity,
+// no lineage: every save is its own row, editing and re-saving creates a
+// new independent entry. Cross-job lineage (a `Resume` parent + resumeId
+// FKs) is deferred (§6.4) until there's demand for it.
+model SavedResume {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label            String // default "{role} — {company}", user-editable
+  role             String?
+  company          String?
+  score            Int?
+  structuredResume Json
+  sourceScanId     String? // provenance back-ref, not a foreign key — the source scan may be deleted
+  createdAt        DateTime @default(now())
+
+  @@index([userId])
+}
+
 // ---------------------------------------------------------------------------
 // Vector store — pgvector primary, Qdrant swappable behind VectorStore
 // ---------------------------------------------------------------------------
 
 model SkillEmbedding {
-  id             String                 @id @default(cuid())
-  normalizedTerm String                 @unique // cache key: skills/phrases repeat heavily across users
+  id             String                      @id @default(cuid())
+  normalizedTerm String                      @unique // cache key: skills/phrases repeat heavily across users
   embedding      Unsupported("vector(1536)")
-  createdAt      DateTime               @default(now())
+  createdAt      DateTime                    @default(now())
 
   @@index([normalizedTerm])
 }
@@ -163,12 +199,12 @@ model CreditLedger {
 }
 
 model PricingVariant {
-  id        String   @id @default(cuid())
-  name      String // "trial" | "standard" | "bulk"
+  id          String   @id @default(cuid())
+  name        String // "trial" | "standard" | "bulk"
   priceRupees Int
-  credits   Int
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  credits     Int
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
 
   transactions Transaction[]
 }
@@ -190,17 +226,17 @@ model Transaction {
 
 // FR-18 — every LLM call logs model, agent, token usage, cost, latency.
 model UsageLog {
-  id         String   @id @default(cuid())
-  scanId     String?
-  agentName  String
-  provider   String // "anthropic" | "openai" | "gemini"
-  model      String
-  tokensIn   Int
-  tokensOut  Int
-  costUsd    Float
-  latencyMs  Int
-  cacheHit   Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  scanId    String?
+  agentName String
+  provider  String // "anthropic" | "openai" | "gemini"
+  model     String
+  tokensIn  Int
+  tokensOut Int
+  costUsd   Float
+  latencyMs Int
+  cacheHit  Boolean  @default(false)
+  createdAt DateTime @default(now())
 
   @@index([agentName])
   @@index([scanId])

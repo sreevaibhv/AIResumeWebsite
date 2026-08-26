@@ -1,0 +1,23 @@
+.resumes__row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+
+.resumes__rowmain {
+  flex: 3 1 220px;
+  min-width: 0;
+}
+
+.resumes__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+.resumes__select {
+  width: auto;
+  min-width: 120px;
+}

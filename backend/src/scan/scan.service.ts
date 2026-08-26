@@ -1,10 +1,18 @@
-import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from "@nestjs/common";
 import { PrismaService } from "../common/prisma.service";
 import { RedisService } from "../common/redis.service";
 import { ScanPipeline, ScanPipelineResult } from "../orchestrator/scan-pipeline";
 import { RewritePipeline } from "../orchestrator/rewrite-pipeline";
+import { applyDeterministicFixes } from "../orchestrator/deterministic-fixes";
+import { computeCeiling, ConfirmedSkills } from "../scoring/achievable-ceiling";
+import { computeVerdict } from "../scoring/verdict";
 import { CreateScanDto } from "./dto/create-scan.dto";
-import { ScanOptions } from "../agents/types";
+import { ConfirmScanDto } from "./dto/confirm-scan.dto";
+import { runInterviewPrepAgent } from "../agents/interview-prep.agent";
+import { runReferralMessageAgent } from "../agents/referral-message.agent";
+import { runRecruiterCommentAgent } from "../agents/recruiter-comment.agent";
+import { render, ExportFormat, contentType } from "../export/render";
+import { ScanOptions, Tier, ParsedResume, ParsedJD, DeterministicResult, ScoreResult, ScoreCategory } from "../agents/types";
 import { Tier as PrismaTier, Scan, Prisma } from "@prisma/client";
 
 @Injectable()
@@ -22,7 +30,6 @@ export class ScanService {
 
   async createScan(dto: CreateScanDto, userId?: string) {
     const options: ScanOptions = {
-      tier: (dto.tier ?? "Startup") as ScanOptions["tier"],
       fresherMode: dto.fresherMode ?? false,
     };
 
@@ -44,17 +51,25 @@ export class ScanService {
         cacheKey,
         resumeText: dto.resumeText,
         jdText: dto.jdText,
-        tier: options.tier.toUpperCase() as PrismaTier,
         fresherMode: options.fresherMode,
       },
     });
 
     try {
+      // Tier is detected from the JD inside the pipeline, not supplied here.
       const result = await this.scanPipeline.run(dto.resumeText, dto.jdText, options, scan.id);
+
+      // §2/§3 — achievable ceiling + verdict, both pure arithmetic. No
+      // confirmations exist yet on a fresh scan, so this is the
+      // conservative baseline the confirm endpoint later recomputes.
+      const ceiling = computeCeiling(result.score, result.deterministic, result.quality, result.resume, null);
+      const verdict = computeVerdict(result.score, result.deterministic, result.jd, ceiling, null);
+
       const updated = await this.prisma.scan.update({
         where: { id: scan.id },
         data: {
           status: "COMPLETE",
+          tier: result.tier.toUpperCase() as PrismaTier,
           resumeParsed: result.resume as any,
           jdParsed: result.jd as any,
           score: result.score as any,
@@ -65,7 +80,9 @@ export class ScanService {
             quality: result.quality,
             semantic: result.semantic,
             tierCalibration: result.tierCalibration,
+            tierReason: result.tierReason,
           } as any,
+          verdict: verdict as any,
         },
       });
       await this.prisma.resumeVersion.create({
@@ -121,10 +138,11 @@ export class ScanService {
         roadmap: existing.roadmap ?? undefined,
         naukri: existing.naukri ?? undefined,
         details: existing.details ?? undefined,
+        verdict: existing.verdict ?? undefined,
       },
     });
 
-    // The rewrite and diff endpoints both start from the "original"
+    // The improve and diff endpoints both start from the "original"
     // version, so the copy needs one of its own.
     const original = await this.prisma.resumeVersion.findFirst({
       where: { scanId: existing.id, kind: "original" },
@@ -163,6 +181,7 @@ export class ScanService {
         score: true,
         roadmap: true,
         jdParsed: true,
+        verdict: true,
         createdAt: true,
         resumeVersions: { select: { kind: true, verified: true } },
         interviewPreps: { select: { id: true } },
@@ -176,6 +195,7 @@ export class ScanService {
       fresherMode: scan.fresherMode,
       createdAt: scan.createdAt,
       score: scan.score,
+      verdict: (scan.verdict as { verdict?: string } | null)?.verdict ?? null,
       // The list only needs how many fixes remain and what they are worth.
       roadmapCount: Array.isArray(scan.roadmap) ? scan.roadmap.length : 0,
       roadmapGain: Array.isArray(scan.roadmap)
@@ -197,30 +217,113 @@ export class ScanService {
     return scan;
   }
 
-  async rewriteScan(id: string) {
-    const scan = await this.getScan(id);
-    if (scan.status !== "COMPLETE" || !scan.resumeParsed || !scan.jdParsed || !scan.roadmap) {
-      throw new BadRequestException("Scan must complete successfully before it can be rewritten.");
+  /**
+   * Every LLM-burning or data-mutating endpoint below needs this. An
+   * unowned scan (started before signup) is claimed by the first
+   * signed-in caller — mirroring attributeCachedScan's "unowned +
+   * signed-in → claim it" rule — rather than left permanently orphaned.
+   */
+  private async assertOwnsScan<T extends Scan>(scan: T, userId: string): Promise<T> {
+    if (scan.userId === userId) return scan;
+    if (scan.userId === null) {
+      await this.prisma.scan.update({ where: { id: scan.id }, data: { userId } });
+      return { ...scan, userId };
     }
-    const options: ScanOptions = {
-      tier: toTierLabel(scan.tier),
-      fresherMode: scan.fresherMode,
+    throw new ForbiddenException("You do not have access to this scan.");
+  }
+
+  /** spec §2.2 — persist confirmed must-haves/profile links, recompute the ceiling and verdict. */
+  async confirmScan(id: string, userId: string, dto: ConfirmScanDto) {
+    const scan = await this.assertOwnsScan(await this.getScan(id), userId);
+    if (scan.status !== "COMPLETE" || !scan.score || !scan.jdParsed || !scan.resumeParsed || !scan.details) {
+      throw new BadRequestException("Scan must complete successfully before confirming keywords.");
+    }
+
+    const confirmed: ConfirmedSkills = {
+      skills: dto.skills ?? [],
+      contact: dto.contact ?? {},
     };
 
+    const details = scan.details as any;
+    const ceiling = computeCeiling(
+      scan.score as unknown as ScoreResult,
+      details.deterministic as DeterministicResult,
+      details.quality,
+      scan.resumeParsed as unknown as ParsedResume,
+      confirmed,
+    );
+    const verdict = computeVerdict(
+      scan.score as unknown as ScoreResult,
+      details.deterministic as DeterministicResult,
+      scan.jdParsed as unknown as ParsedJD,
+      ceiling,
+      confirmed,
+    );
+
+    await this.prisma.scan.update({
+      where: { id: scan.id },
+      data: { confirmedSkills: confirmed as any, verdict: verdict as any },
+    });
+
+    return verdict;
+  }
+
+  /**
+   * spec §4 — POST /scan/:id/improve. Replaces the old /rewrite. Reuses
+   * stored data only: no re-scan, no re-parse, no re-detect.
+   *
+   *   1. deterministic fixes (code) — confirmed keywords + profile links,
+   *      normalised email/phone (invariant #1: only what the user supplied)
+   *   2. RewriteAgent → VerifyAgent, fail-closed (invariant #2)
+   *   3. re-score via ScanPipeline.runFromStructured against the stored tier
+   */
+  async improveScan(id: string, userId: string) {
+    const scan = await this.assertOwnsScan(await this.getScan(id), userId);
+    if (scan.status !== "COMPLETE" || !scan.resumeParsed || !scan.jdParsed || !scan.roadmap || !scan.details) {
+      throw new BadRequestException("Scan must complete successfully before it can be improved.");
+    }
+    const options: ScanOptions = { fresherMode: scan.fresherMode };
+    const jd = scan.jdParsed as unknown as ParsedJD;
+    const det = (scan.details as any).deterministic as DeterministicResult;
+    const confirmed = (scan.confirmedSkills as unknown as ConfirmedSkills | null) ?? null;
+    const jdSkills = [...jd.mustHaveSkills, ...jd.niceToHaveSkills];
+
+    const baseResume = applyDeterministicFixes(scan.resumeParsed as unknown as ParsedResume, det, confirmed, jdSkills);
+    const beforeScore = (scan.score as unknown as ScoreResult).generic;
+
     const result = await this.rewritePipeline.run(
-      scan.resumeParsed as any,
+      baseResume,
       scan.roadmap as any,
-      scan.jdParsed as any,
+      jd,
+      toTierLabel(scan.tier),
       options,
       scan.id,
     );
 
     if (result.status === "verification_failed") {
-      await this.prisma.resumeVersion.create({
-        data: { scanId: scan.id, kind: "rewritten", content: result.resume as any, verified: false, flagged: result.flaggedClaims as any },
+      const version = await this.prisma.resumeVersion.create({
+        data: {
+          scanId: scan.id,
+          kind: "rewritten",
+          content: result.resume as any,
+          verified: false,
+          flagged: result.flaggedClaims as any,
+          beforeScore,
+        },
       });
-      return { status: "verification_failed", flaggedClaims: result.flaggedClaims };
+      return {
+        status: "verification_failed" as const,
+        structuredResume: result.resume,
+        flaggedClaims: result.flaggedClaims,
+        resumeVersionId: version.id,
+      };
     }
+
+    const afterScore = result.rescored.score.generic;
+    const categoryDelta = computeCategoryDelta(
+      (scan.score as unknown as ScoreResult).categories,
+      result.rescored.score.categories,
+    );
 
     const version = await this.prisma.resumeVersion.create({
       data: {
@@ -229,19 +332,87 @@ export class ScanService {
         content: result.resume as any,
         verified: true,
         diff: { changeSummary: result.changeSummary, rescored: result.rescored.score } as any,
+        beforeScore,
+        afterScore,
+        scoreDelta: categoryDelta as any,
       },
     });
-    await this.prisma.interviewPrepSet.create({
-      data: { scanId: scan.id, technical: result.interviewPrep.technical as any, hr: result.interviewPrep.hr as any },
-    });
 
-    return { ...result, resumeVersionId: version.id };
+    return {
+      status: "verified" as const,
+      structuredResume: result.resume,
+      changeSummary: result.changeSummary,
+      beforeScore,
+      afterScore,
+      categoryDelta,
+      resumeVersionId: version.id,
+    };
+  }
+
+  /** spec §7 — generated on demand; no longer gated behind an improve. */
+  async generateInterviewPrep(id: string, userId: string) {
+    const scan = await this.assertOwnsScan(await this.getScan(id), userId);
+    if (scan.status !== "COMPLETE" || !scan.resumeParsed || !scan.jdParsed) {
+      throw new BadRequestException("Scan must complete successfully before generating interview prep.");
+    }
+    const prep = await runInterviewPrepAgent(
+      scan.resumeParsed as unknown as ParsedResume,
+      scan.jdParsed as unknown as ParsedJD,
+      scan.id,
+    );
+    return this.prisma.interviewPrepSet.create({
+      data: { scanId: scan.id, technical: prep.data.technical as any, hr: prep.data.hr as any },
+    });
   }
 
   async getInterviewPrep(scanId: string) {
     const prep = await this.prisma.interviewPrepSet.findFirst({ where: { scanId }, orderBy: { createdAt: "desc" } });
-    if (!prep) throw new NotFoundException(`No interview prep generated yet for scan ${scanId} — run a rewrite first.`);
+    if (!prep) throw new NotFoundException(`No interview prep generated yet for scan ${scanId} — generate it first.`);
     return prep;
+  }
+
+  /** spec §7 — return-only, no persistence; one CHEAP call is cheaper than storing and invalidating a draft. */
+  async referralMessage(id: string, userId: string, contactName?: string) {
+    const scan = await this.assertOwnsScan(await this.getScan(id), userId);
+    if (scan.status !== "COMPLETE" || !scan.resumeParsed || !scan.jdParsed) {
+      throw new BadRequestException("Scan must complete successfully before drafting a referral message.");
+    }
+    const jd = scan.jdParsed as unknown as ParsedJD;
+    const result = await runReferralMessageAgent(
+      scan.resumeParsed as unknown as ParsedResume,
+      jd.company,
+      jd.title,
+      contactName,
+      scan.id,
+    );
+    return result.data;
+  }
+
+  /** spec §4 — pulled out of the improve pipeline; it was paid for on every rewrite and never displayed. */
+  async recruiterComment(id: string, userId: string) {
+    const scan = await this.assertOwnsScan(await this.getScan(id), userId);
+    if (scan.status !== "COMPLETE" || !scan.resumeParsed || !scan.jdParsed) {
+      throw new BadRequestException("Scan must complete successfully before generating recruiter comments.");
+    }
+    const result = await runRecruiterCommentAgent(
+      scan.resumeParsed as unknown as ParsedResume,
+      scan.jdParsed as unknown as ParsedJD,
+      scan.id,
+    );
+    return result.data;
+  }
+
+  /** spec §5 — export never calls an LLM; pure rendering from a stored ResumeVersion's structured content. */
+  async exportResumeVersion(versionId: string, userId: string, templateId: string | undefined, format: ExportFormat) {
+    const version = await this.prisma.resumeVersion.findUnique({ where: { id: versionId }, include: { scan: true } });
+    if (!version) throw new NotFoundException(`Resume version ${versionId} not found`);
+    await this.assertOwnsScan(version.scan, userId);
+
+    const buffer = await render(version.content as unknown as ParsedResume, templateId, format);
+    const jd = version.scan.jdParsed as { title?: string; company?: string } | null;
+    const label = [jd?.title, jd?.company].filter(Boolean).join(" — ") || version.kind;
+    const safe = label.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-") || "resume";
+    return { buffer, contentType: contentType(format), filename: `${safe}.${format}` };
   }
 
   async getDiff(scanId: string) {
@@ -253,12 +424,24 @@ export class ScanService {
   }
 }
 
-function toTierLabel(prismaTier: PrismaTier): ScanOptions["tier"] {
-  const map: Record<PrismaTier, ScanOptions["tier"]> = {
+/**
+ * GOVERNMENT is retained in the Prisma enum for existing rows but is no
+ * longer written — TierDetectionAgent folds government/PSU employers into
+ * PSU directly. Any legacy GOVERNMENT row maps to PSU on read.
+ */
+function toTierLabel(prismaTier: PrismaTier): Tier {
+  const map: Record<PrismaTier, Tier> = {
     STARTUP: "Startup",
     MNC: "MNC",
     PSU: "PSU",
-    GOVERNMENT: "Government",
+    GOVERNMENT: "PSU",
   };
   return map[prismaTier];
+}
+
+function computeCategoryDelta(before: ScoreCategory[], after: ScoreCategory[]) {
+  return after.map((a) => {
+    const b = before.find((c) => c.key === a.key);
+    return { key: a.key, before: b?.earned ?? 0, after: a.earned, delta: a.earned - (b?.earned ?? 0) };
+  });
 }

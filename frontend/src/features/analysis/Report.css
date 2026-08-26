@@ -197,6 +197,41 @@
   border-top: 1px solid var(--rule-soft);
 }
 
+/* ---------- verdict banner ---------- */
+
+.verdict-reasons {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-top: var(--s-2);
+}
+
+.verdict-reasons__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.verdict-reasons__item--blocker .ds-body-sm { color: var(--critical); }
+
+/* ---------- confirm gate ---------- */
+
+.confirm-gate__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: var(--s-3) 0;
+}
+
+.confirm-gate__contact {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--s-3);
+  margin-bottom: var(--s-3);
+}
+
 /* ---------- score panel ---------- */
 
 .score__summary {
@@ -507,6 +542,45 @@
   padding-left: 1.1em;
 }
 
+.fixes__delta {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  margin: var(--s-3) 0;
+}
+.fixes__delta li {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.fixes__postimprove {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  margin-top: var(--s-4);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--rule-soft);
+}
+
+.fixes__save,
+.fixes__export {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+}
+.fixes__save .ds-field,
+.fixes__export .ds-field { flex: 1 1 200px; margin-bottom: 0; }
+
+.fixes__ondemand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-3);
+}
+
 /* ---------- mobile accordions ---------- */
 
 .report__accordion {
@@ -530,6 +604,27 @@
 .report__accordion[open] > summary::after { content: "▾"; }
 .report__accordion[open] > summary { margin-bottom: var(--s-4); }
 .report__accordion > summary::-webkit-details-marker { display: none; }
+
+/* ---------- prep ---------- */
+
+.prep__list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin-top: var(--s-2);
+}
+
+.prep__item {
+  padding-bottom: var(--s-3);
+  border-bottom: 1px solid var(--rule-soft);
+}
+.prep__item:last-child { border-bottom: 0; padding-bottom: 0; }
+
+.prep__why {
+  margin-top: 4px;
+  color: var(--ink-mute);
+}
 
 /* ---------- responsive ---------- */
 

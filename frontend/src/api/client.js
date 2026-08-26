@@ -140,7 +140,64 @@ export const api = {
   listScans: () => request("/scans"),
   createScan: (payload) => request("/scan", { method: "POST", body: JSON.stringify(payload) }),
   getScan: (id) => request(`/scan/${id}`),
-  rewriteScan: (id) => request(`/scan/${id}/rewrite`, { method: "POST" }),
+  confirmScan: (id, payload) => request(`/scan/${id}/confirm`, { method: "POST", body: JSON.stringify(payload) }),
+  improveScan: (id) => request(`/scan/${id}/improve`, { method: "POST" }),
+  generateInterviewPrep: (id) => request(`/scan/${id}/interview-prep`, { method: "POST" }),
   getInterviewPrep: (id) => request(`/scan/${id}/interview-prep`),
+  referralMessage: (id, contactName) =>
+    request(`/scan/${id}/referral-message`, { method: "POST", body: JSON.stringify({ contactName }) }),
+  recruiterComment: (id) => request(`/scan/${id}/recruiter-comment`, { method: "POST" }),
   getDiff: (id) => request(`/scan/${id}/diff`),
+
+  // resumes (saved library)
+  listResumes: () => request("/resumes"),
+  saveResume: (payload) => request("/resumes", { method: "POST", body: JSON.stringify(payload) }),
+  deleteResume: (id) => request(`/resumes/${id}`, { method: "DELETE" }),
 };
+
+/**
+ * Tier-2 document extraction upload. Like download() below, this bypasses
+ * request() entirely — request() unconditionally sets
+ * "Content-Type": "application/json", which would suppress the multipart
+ * boundary fetch needs to attach for a FormData body.
+ */
+export async function extractDocument(file) {
+  const token = session.get()?.accessToken;
+  const body = new FormData();
+  body.append("file", file);
+  const res = await fetch(`${BASE}/extract`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body,
+  });
+  if (!res.ok) {
+    const responseBody = await res.json().catch(() => ({}));
+    throw new ApiError(responseBody.message ?? `Document read failed with ${res.status}`, res.status);
+  }
+  return res.json();
+}
+
+/**
+ * Authenticated file download. `request()` above always parses JSON and a
+ * plain `<a href>` cannot carry the bearer token, so an export needs its
+ * own fetch: read the response as a blob and trigger it via an object URL.
+ */
+export async function download(path, filename) {
+  const token = session.get()?.accessToken;
+  const res = await fetch(`${BASE}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(body.message ?? `Download failed with ${res.status}`, res.status);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

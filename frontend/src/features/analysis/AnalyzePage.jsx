@@ -2,28 +2,33 @@ import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
-import { FileText, Upload, X } from "lucide-react";
+import * as mammoth from "mammoth";
+import { FileText, Upload, X, Loader2 } from "lucide-react";
 import {
   Page, Card, Button, Field, Textarea, ChoiceGroup, Alert, Checkbox, Chip, ICON,
 } from "../../design-system";
-import { api, prefs, ApiError } from "../../api/client";
+import { api, prefs, ApiError, extractDocument } from "../../api/client";
 import { track, EVENTS } from "../../services/analytics";
+import { assessExtraction } from "./extractionQuality";
 import { ProcessingState } from "./ProcessingState";
 import "./AnalyzePage.css";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 /**
- * Analyse — four inputs, one screen, no wizard.
+ * Analyse — three inputs, one screen, no wizard.
  *
- * Text extraction runs here rather than on the server, so an unreadable
- * PDF is caught before a request is sent and costs nothing. The tier
- * and experience controls are pre-filled from onboarding but never
- * hidden: they are the India-specific differentiators, and burying them
- * makes the thing that distinguishes the product invisible.
+ * Two-tier extraction: pdfjs runs here in the browser first (tier 1), so a
+ * good PDF costs nothing and sends nothing. assessExtraction() grades the
+ * result; anything short of "good" escalates to a server-side Gemini
+ * multimodal read (tier 2) of the raw bytes. Either way, the extracted
+ * text always lands in an editable confirm step before it's submitted —
+ * that step, not the trigger, is what actually protects against a bad
+ * read reaching the pipeline. The experience control is pre-filled from
+ * onboarding but never hidden. Company tier is not asked here at all —
+ * it's detected from the JD (TierDetectionAgent) once the scan runs.
  */
 
-const TIERS = ["Startup", "MNC", "PSU", "Government"];
 const EXPERIENCE = [
   { value: "fresher", label: "Fresher" },
   { value: "1-2", label: "1–2 years" },
@@ -45,7 +50,7 @@ async function extractPdfText(file) {
     const content = await page.getTextContent();
     pages.push(content.items.map((i) => i.str).join(" "));
   }
-  return pages.join("\n\n").trim();
+  return { text: pages.join("\n\n").trim(), pageCount: pdf.numPages };
 }
 
 export default function AnalyzePage() {
@@ -56,24 +61,69 @@ export default function AnalyzePage() {
   const [resumeText, setResumeText] = useState("");
   const [fileName, setFileName] = useState("");
   const [jdText, setJdText] = useState("");
-  const [tier, setTier] = useState(saved.tier ?? "Startup");
   const [experience, setExperience] = useState(saved.experience ?? "1-2");
   const [fresherOverride, setFresherOverride] = useState(null);
 
   const [dragging, setDragging] = useState(false);
   const [fileError, setFileError] = useState("");
   const [showPaste, setShowPaste] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [extractionTier, setExtractionTier] = useState(null); // 1 | 2 | null — which tier produced the current resumeText
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [jdTouched, setJdTouched] = useState(false);
 
   const fresherMode = fresherOverride ?? experience === "fresher";
   const jdTooShort = jdTouched && jdText.trim().length > 0 && jdText.trim().length < MIN_JD;
-  const canSubmit = resumeText.trim().length >= MIN_RESUME && jdText.trim().length >= MIN_RESUME;
+  // !extracting guards against submitting stale text from a previous
+  // upload while a new (up to ~60s) deep read for a re-uploaded file is
+  // still in flight.
+  const canSubmit = !extracting && resumeText.trim().length >= MIN_RESUME && jdText.trim().length >= MIN_RESUME;
+
+  /**
+   * Accept extracted text and always show it in the editable confirm
+   * step — that step, not the tier-1/tier-2 trigger, is what actually
+   * protects against a bad read reaching the pipeline.
+   */
+  function applyExtractedText(text, tier) {
+    setResumeText(text);
+    setExtractionTier(tier);
+    setShowPaste(true);
+  }
+
+  /** Tier 2: upload the raw bytes for a Gemini multimodal read, only ever reached for PDFs. */
+  async function escalateToDeepRead(file, pageCountHint) {
+    setExtracting(true);
+    try {
+      const { text } = await extractDocument(file);
+      const assessment = assessExtraction(text, { pageCount: pageCountHint });
+      track(EVENTS.resume_extraction_assessed, {
+        tier: 2, verdict: assessment.verdict, codes: assessment.codes, ...assessment.metrics,
+      });
+
+      if (assessment.verdict === "unusable") {
+        setFileError("We still could not read this document reliably. Paste your resume text instead.");
+        setShowPaste(true);
+        return;
+      }
+      applyExtractedText(text, 2);
+      track(EVENTS.resume_uploaded, { kind: "pdf-deep-read", chars: text.length });
+    } catch (err) {
+      setFileError(
+        err instanceof ApiError && err.status === 429
+          ? "You have reached your document-read limit for now. Paste your resume text instead."
+          : "We could not read that PDF, even with a deeper scan. Paste your resume text instead.",
+      );
+      setShowPaste(true);
+    } finally {
+      setExtracting(false);
+    }
+  }
 
   async function ingest(file) {
     if (!file) return;
     setFileError("");
+    setExtractionTier(null);
 
     if (file.size > MAX_FILE_BYTES) {
       setFileError("That file is larger than 5 MB. Resumes are usually well under 1 MB.");
@@ -88,31 +138,70 @@ export default function AnalyzePage() {
     setFileName(file.name);
 
     if (ext === ".pdf") {
+      let extracted;
       try {
-        const text = await extractPdfText(file);
-        if (text.length < MIN_RESUME) {
-          setFileError("We could not find any text in that PDF — it looks like a scan. Paste your resume text instead.");
+        extracted = await extractPdfText(file);
+      } catch (err) {
+        if (err?.name === "PasswordException") {
+          setFileError("This PDF is password protected. Remove the password, or paste your resume text instead.");
           setShowPaste(true);
           return;
         }
-        setResumeText(text);
+        if (err?.name === "InvalidPDFException") {
+          setFileError("That doesn't look like a valid PDF. Paste your resume text instead.");
+          setShowPaste(true);
+          return;
+        }
+        // An unrecognized pdfjs failure is exactly the case a multimodal
+        // read is most likely to recover from.
+        await escalateToDeepRead(file, null);
+        return;
+      }
+
+      const { text, pageCount } = extracted;
+      const assessment = assessExtraction(text, { pageCount });
+      track(EVENTS.resume_extraction_assessed, {
+        tier: 1, verdict: assessment.verdict, codes: assessment.codes, ...assessment.metrics,
+      });
+
+      if (assessment.verdict === "good") {
+        applyExtractedText(text, 1);
         track(EVENTS.resume_uploaded, { kind: "pdf", chars: text.length });
+        return;
+      }
+
+      // Tier 1 escalates on anything short of "good" — the confirm step
+      // below is what actually gates trust, so it's safe to lean toward
+      // escalating whenever the local read is uncertain.
+      await escalateToDeepRead(file, pageCount);
+      return;
+    }
+
+    if (ext === ".doc" || ext === ".docx") {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const { value: text } = await mammoth.extractRawText({ arrayBuffer });
+        const assessment = assessExtraction(text, { pageCount: 1 });
+        track(EVENTS.resume_extraction_assessed, {
+          tier: 1, verdict: assessment.verdict, codes: assessment.codes, ...assessment.metrics,
+        });
+
+        if (assessment.verdict === "unusable") {
+          setFileError("We could not read that Word file cleanly. Paste your resume text instead.");
+          setShowPaste(true);
+          return;
+        }
+        applyExtractedText(text, 1);
+        track(EVENTS.resume_uploaded, { kind: "docx", chars: text.length });
       } catch {
-        setFileError("We could not read that PDF. Paste your resume text instead.");
+        setFileError("We could not read that Word file. Paste your resume text instead.");
         setShowPaste(true);
       }
       return;
     }
 
-    if (ext === ".doc" || ext === ".docx") {
-      // No .docx parser is bundled; saying so beats failing silently.
-      setFileError("We cannot read Word files in the browser yet. Export to PDF, or paste the text.");
-      setShowPaste(true);
-      return;
-    }
-
     const text = await file.text();
-    setResumeText(text);
+    applyExtractedText(text, 1);
     track(EVENTS.resume_uploaded, { kind: "text", chars: text.length });
   }
 
@@ -120,6 +209,8 @@ export default function AnalyzePage() {
     setFileName("");
     setResumeText("");
     setFileError("");
+    setExtractionTier(null);
+    setShowPaste(false);
     if (fileInput.current) fileInput.current.value = "";
   }
 
@@ -127,11 +218,11 @@ export default function AnalyzePage() {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    track(EVENTS.scan_started, { tier, experience, fresherMode });
+    track(EVENTS.scan_started, { experience, fresherMode });
     track(EVENTS.jd_submitted, { chars: jdText.trim().length });
 
     try {
-      const scan = await api.createScan({ resumeText, jdText, tier, fresherMode });
+      const scan = await api.createScan({ resumeText, jdText, fresherMode });
       track(EVENTS.scan_completed, { scanId: scan.id, score: scan.score?.generic });
       navigate(`/report/${scan.id}`, { replace: true });
     } catch (err) {
@@ -159,7 +250,13 @@ export default function AnalyzePage() {
           <Card pad="lg" className="analyze__col">
             <div className="ds-label">1 · Your resume</div>
 
-            {fileName && !fileError ? (
+            {extracting ? (
+              <div className="analyze__drop analyze__drop--busy">
+                <Loader2 size={ICON.lg} strokeWidth={ICON.stroke} className="analyze__spin" />
+                <div className="ds-body-sm">Reading your document more closely…</div>
+                <div className="ds-caption">This can take up to a minute.</div>
+              </div>
+            ) : fileName && !fileError ? (
               <div className="analyze__file">
                 <FileText size={ICON.md} strokeWidth={ICON.stroke} />
                 <div className="analyze__file-meta">
@@ -182,7 +279,7 @@ export default function AnalyzePage() {
                 <Button variant="secondary" size="sm" onClick={() => fileInput.current?.click()}>
                   Choose a file
                 </Button>
-                <div className="ds-caption">PDF or TXT · up to 5 MB</div>
+                <div className="ds-caption">PDF, DOCX or TXT · up to 5 MB</div>
                 <input
                   ref={fileInput}
                   type="file"
@@ -197,11 +294,21 @@ export default function AnalyzePage() {
               <Alert tone="warn" title="Could not read that file">{fileError}</Alert>
             ) : null}
 
+            {/* extractionTier === 2 means the browser's own read failed
+                and this text came from a Gemini image read instead — the
+                confirm step below is the actual safety net for that, so
+                it needs to be impossible to miss. */}
+            {extractionTier === 2 && !fileError ? (
+              <Alert tone="warn" title="We read this as an image">
+                We could not read this PDF cleanly, so we read it as an image instead. Please check the text below closely — this kind of reading can make mistakes.
+              </Alert>
+            ) : null}
+
             {/* Visible whenever no file has been read. It must NOT depend on
                 resumeText being empty — that unmounts the field the moment
                 the user types their first character into it. */}
             {(showPaste || !fileName) ? (
-              <Field label="Or paste your resume">
+              <Field label={extractionTier ? "Review the extracted text" : "Or paste your resume"}>
                 {(a) => (
                   <Textarea
                     value={resumeText}
@@ -239,9 +346,8 @@ export default function AnalyzePage() {
         {/* ---------- targeting ---------- */}
         <Card pad="lg">
           <div className="analyze__targeting">
-            <ChoiceGroup label="3 · Company type" name="tier" value={tier} onChange={setTier} options={TIERS} />
             <ChoiceGroup
-              label="4 · Experience"
+              label="3 · Experience"
               name="experience"
               value={experience}
               onChange={(v) => { setExperience(v); setFresherOverride(null); }}
@@ -257,7 +363,7 @@ export default function AnalyzePage() {
             />
           </div>
           <p className="ds-caption analyze__targeting-note">
-            These change the scoring, not just the wording — a PSU is screened differently from a startup.
+            This changes the scoring, not just the wording — a fresher is not penalised for missing years.
           </p>
         </Card>
 
@@ -275,7 +381,7 @@ export default function AnalyzePage() {
           <Button type="submit" size="lg" disabled={!canSubmit}>Analyse my resume</Button>
           <div className="ds-caption">
             {canSubmit
-              ? <>About 30 seconds · <Chip tone="muted">{tier}</Chip> <Chip tone="muted">{fresherMode ? "Fresher" : experience}</Chip></>
+              ? <>About 30 seconds · <Chip tone="muted">{fresherMode ? "Fresher" : experience}</Chip></>
               : "Add your resume and the job description to continue."}
           </div>
         </div>

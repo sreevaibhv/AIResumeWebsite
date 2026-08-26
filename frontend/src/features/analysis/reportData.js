@@ -10,11 +10,13 @@ import { scoreLabel } from "../../design-system";
 /** FR-17 — the free tier sees the score and the top three fixes. */
 export const FREE_ROADMAP_ITEMS = 3;
 
+// GOVERNMENT is a legacy value — the backend no longer writes it (folded
+// into PSU by TierDetectionAgent) but old rows may still carry it.
 const TIER_LABEL = {
   STARTUP: "Startup",
   MNC: "MNC",
   PSU: "PSU",
-  GOVERNMENT: "Government",
+  GOVERNMENT: "PSU",
 };
 
 /** Prisma's Tier enum → display label. Naive title-casing gives "Mnc"/"Psu". */
@@ -85,8 +87,15 @@ export function mapScanToReport(scan) {
   const casing = buildCasingMap(jd);
   const display = (term) => casing.get(String(term).toLowerCase().trim()) ?? term;
 
+  const confirmedSkills = scan.confirmedSkills ?? { skills: [], contact: {} };
+  const confirmedTerms = new Set((confirmedSkills.skills ?? []).map((s) => s.toLowerCase().trim()));
+
   const found = (det.foundKeywords ?? []).map((f) => ({ ...f, term: display(f.term) }));
-  const missing = (det.missingKeywords ?? []).map((m) => ({ ...m, term: display(m.term) }));
+  const missing = (det.missingKeywords ?? []).map((m) => ({
+    ...m,
+    term: display(m.term),
+    confirmed: confirmedTerms.has(String(m.term).toLowerCase().trim()),
+  }));
   const totalJdSkills = found.length + missing.length;
   const perKeywordImpact = keywordImpact(categories, totalJdSkills);
 
@@ -181,6 +190,7 @@ export function mapScanToReport(scan) {
     tier: tierLabel(scan.tier),
     fresherMode: scan.fresherMode,
     candidate: resume.contact?.name ?? null,
+    contact: resume.contact ?? {},
     createdAt: scan.createdAt,
 
     // headline
@@ -189,9 +199,15 @@ export function mapScanToReport(scan) {
     qualityScore,
     portalGap,
     gapReason: score.gapReason ?? naukri?.gapReason ?? "",
-    verdict: scoreLabel(generic),
+    scoreLabel: scoreLabel(generic),
     exactMatch: score.exactMatch ?? det.exactMatchPct ?? 0,
     semanticMatch: score.semanticMatch ?? semantic.semanticMatchPct ?? 0,
+
+    // spec §3 — should-I-apply verdict, computed server-side as pure
+    // arithmetic (currentScore/projectedScore/band/reasons/requiredChanges).
+    // Null only if the scan predates verdict computation.
+    verdict: scan.verdict ?? null,
+    confirmedSkills,
 
     categories,
     strengths,
@@ -230,6 +246,10 @@ export function mapScanToReport(scan) {
       .reduce((n, r) => n + (r.gain ?? 0), 0),
 
     hasPrep: (scan.interviewPreps ?? []).length > 0,
+    prep: (() => {
+      const latest = (scan.interviewPreps ?? []).slice(-1)[0];
+      return latest ? { technical: latest.technical ?? [], hr: latest.hr ?? [] } : null;
+    })(),
     isOptimized: (scan.resumeVersions ?? []).some((v) => v.kind === "rewritten" && v.verified),
   };
 }

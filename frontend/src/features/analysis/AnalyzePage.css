@@ -47,6 +47,23 @@
   color: var(--accent);
 }
 
+.analyze__drop--busy {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.analyze__spin {
+  animation: analyze-spin 900ms linear infinite;
+}
+
+@keyframes analyze-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .analyze__spin { animation: none; }
+}
+
 .analyze__file {
   display: flex;
   align-items: center;

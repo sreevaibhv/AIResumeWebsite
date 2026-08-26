@@ -5,11 +5,20 @@
  * to the live API is a field mapping, not a rebuild.
  */
 
-export type Tier = "Startup" | "MNC" | "PSU" | "Government";
+/**
+ * Government tier folds into PSU for now — a bio-data format (photograph,
+ * father's name, category, domicile) is a different document type this
+ * product cannot produce from a resume input. Revisit if that becomes scope.
+ */
+export type Tier = "Startup" | "MNC" | "PSU";
 
 export interface ScanOptions {
-  tier: Tier;
   fresherMode: boolean;
+}
+
+export interface TierDetectionResult {
+  tier: Tier;
+  reason: string;
 }
 
 export interface ParsedResume {

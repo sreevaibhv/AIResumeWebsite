@@ -24,3 +24,32 @@ export async function completeGemini(prompt: string, model: string): Promise<Com
     tokensOut: response.usageMetadata?.candidatesTokenCount ?? 0,
   };
 }
+
+/**
+ * Native PDF input via Part.inlineData — no rasterization step. Plain-text
+ * output (no responseMimeType override): this is a transcription call, not
+ * a structured one, so completeStructured's JSON-schema machinery doesn't
+ * apply here at all.
+ */
+export async function completeGeminiMultimodal(
+  fileBuffer: Buffer,
+  mimeType: string,
+  promptText: string,
+  model: string,
+): Promise<CompletionResult> {
+  const ai = getClient();
+  const response = await ai.models.generateContent({
+    model,
+    contents: [
+      {
+        role: "user",
+        parts: [{ inlineData: { mimeType, data: fileBuffer.toString("base64") } }, { text: promptText }],
+      },
+    ],
+  });
+  return {
+    text: response.text ?? "",
+    tokensIn: response.usageMetadata?.promptTokenCount ?? 0,
+    tokensOut: response.usageMetadata?.candidatesTokenCount ?? 0,
+  };
+}

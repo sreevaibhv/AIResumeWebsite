@@ -21,7 +21,7 @@ const SIDEBAR_KEY = "parse.sidebar.collapsed";
 const NAV = [
   { key: "dashboard", label: "Dashboard", to: "/app", end: true, icon: <LayoutDashboard size={ICON.md} strokeWidth={ICON.stroke} /> },
   { key: "analyze", label: "Analyze", to: "/app/analyze", icon: <FileSearch size={ICON.md} strokeWidth={ICON.stroke} /> },
-  { key: "resumes", label: "My Resumes", to: "/app/resumes", icon: <FileText size={ICON.md} strokeWidth={ICON.stroke} />, disabled: true, disabledReason: "coming with resume management" },
+  { key: "resumes", label: "My Resumes", to: "/app/resumes", icon: <FileText size={ICON.md} strokeWidth={ICON.stroke} /> },
   { key: "prep", label: "Interview Prep", to: "/app/prep", icon: <MessagesSquare size={ICON.md} strokeWidth={ICON.stroke} />, disabled: true, disabledReason: "coming with interview prep" },
   { key: "settings", label: "Settings", to: "/app/settings", icon: <Settings size={ICON.md} strokeWidth={ICON.stroke} />, disabled: true, disabledReason: "coming with account settings" },
 ];

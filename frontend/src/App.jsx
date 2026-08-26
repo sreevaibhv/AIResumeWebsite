@@ -6,6 +6,7 @@ import Dashboard from "./screens/Dashboard";
 import Landing from "./pages/Landing";
 import Onboarding from "./pages/Onboarding";
 import AnalyzePage from "./features/analysis/AnalyzePage";
+import ResumesPage from "./features/resumes/ResumesPage";
 import DesignSystemPreview from "./pages/DesignSystemPreview";
 import { AppShell } from "./layouts/AppShell";
 import { PublicShell } from "./layouts/PublicShell";
@@ -74,6 +75,10 @@ function AppRoutes() {
       <Route
         path="/app/analyze"
         element={<AppRoute crumb="Dashboard" crumbTo="/app"><AnalyzePage /></AppRoute>}
+      />
+      <Route
+        path="/app/resumes"
+        element={<AppRoute crumb="Dashboard" crumbTo="/app"><ResumesPage /></AppRoute>}
       />
 
       <Route path="/report/:scanId" element={<ReportRoute />} />

@@ -3,7 +3,7 @@ import { resolveModel, estimateCostUsd } from "./model-routing";
 import { ModelSpec, StructuredResult } from "./types";
 import { completeAnthropic } from "./providers/anthropic.provider";
 import { completeOpenAI } from "./providers/openai.provider";
-import { completeGemini } from "./providers/gemini.provider";
+import { completeGemini, completeGeminiMultimodal } from "./providers/gemini.provider";
 
 /**
  * FR-18 — every LLM call logs model, agent, tokens, cost. Default sink is
@@ -64,11 +64,11 @@ function sleep(ms: number): Promise<void> {
  * demand" 503) — without a retry these kill the whole scan on a blip.
  * Schema-mismatch retries in completeStructured are separate and unaffected.
  */
-async function callProviderWithRetry(spec: ModelSpec, prompt: string, maxAttempts = 3) {
+async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      return await callProvider(spec, prompt);
+      return await fn();
     } catch (err) {
       lastErr = err;
       if (attempt === maxAttempts - 1 || !isRetryableError(err)) throw err;
@@ -77,6 +77,10 @@ async function callProviderWithRetry(spec: ModelSpec, prompt: string, maxAttempt
     }
   }
   throw lastErr;
+}
+
+function callProviderWithRetry(spec: ModelSpec, prompt: string, maxAttempts = 3) {
+  return withRetry(() => callProvider(spec, prompt), maxAttempts);
 }
 
 /**
@@ -134,6 +138,56 @@ export async function completeStructured<S extends ZodType>(
   return {
     data: (validated as z.SafeParseSuccess<z.infer<S>>).data,
     tokensUsed: { in: tokensIn, out: tokensOut },
+    costUsd,
+    latencyMs,
+    provider: spec.provider,
+    model: spec.model,
+  };
+}
+
+/**
+ * Sibling to completeStructured for the one non-JSON call in the system:
+ * document transcription. There's no schema to validate against, so no
+ * correction retry — only the transient-error retry, and the same
+ * cost/usage logging every other agent gets.
+ *
+ * Gemini-only: native PDF inlineData has no equivalent wired for the other
+ * providers, and DocumentExtractionAgent isn't in the reasoning-tier
+ * auto-upgrade set (model-routing.ts) — a MODEL_OVERRIDE pointed at a
+ * non-Gemini provider is a misconfiguration, not something to silently
+ * degrade around.
+ */
+export async function completeMultimodalText(
+  fileBuffer: Buffer,
+  mimeType: string,
+  promptText: string,
+  agentName: string,
+  opts: { scanId?: string; modelOverride?: ModelSpec } = {},
+): Promise<StructuredResult<string>> {
+  const spec = resolveModel(agentName, opts.modelOverride);
+  if (spec.provider !== "gemini") {
+    throw new Error(`${agentName}: multimodal extraction only supports Gemini (native PDF inlineData) — resolved to "${spec.provider}".`);
+  }
+
+  const start = Date.now();
+  const raw = await withRetry(() => completeGeminiMultimodal(fileBuffer, mimeType, promptText, spec.model));
+  const latencyMs = Date.now() - start;
+  const costUsd = estimateCostUsd(spec.provider, spec.model, raw.tokensIn, raw.tokensOut);
+
+  usageSink({
+    agentName,
+    provider: spec.provider,
+    model: spec.model,
+    tokensIn: raw.tokensIn,
+    tokensOut: raw.tokensOut,
+    costUsd,
+    latencyMs,
+    scanId: opts.scanId,
+  });
+
+  return {
+    data: raw.text,
+    tokensUsed: { in: raw.tokensIn, out: raw.tokensOut },
     costUsd,
     latencyMs,
     provider: spec.provider,

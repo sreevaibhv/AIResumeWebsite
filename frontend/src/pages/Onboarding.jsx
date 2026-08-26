@@ -6,13 +6,14 @@ import { track, EVENTS } from "../services/analytics";
 import { useAuth } from "../contexts/AuthContext";
 
 /**
- * Onboarding — two questions that change how scoring works, and one
+ * Onboarding — one question that changes how scoring works, and one
  * that does not.
  *
- * Experience and tier are not profile decoration: they become
- * ScanOptions.fresherMode and ScanOptions.tier, which drive
- * TierCalibrationAgent and the score weighting. Asking them once here
- * is what lets the analyse screen collapse to two inputs afterwards.
+ * Experience is not profile decoration: it becomes ScanOptions.fresherMode,
+ * which drives the score weighting. Company tier is no longer asked here —
+ * it is detected from the job description at scan time (TierDetectionAgent),
+ * so asking the user to pre-classify it would just be a second, possibly
+ * contradictory, answer to the same question.
  *
  * Everything is skippable. A long questionnaire before the product has
  * shown any value is how you lose the user before the first scan.
@@ -25,28 +26,24 @@ const EXPERIENCE = [
   { value: "5+", label: "5+ years" },
 ];
 
-const TIERS = ["Startup", "MNC", "PSU", "Government"];
-
 export default function Onboarding() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const saved = prefs.get();
 
   const [experience, setExperience] = useState(saved.experience ?? "");
-  const [tier, setTier] = useState(saved.tier ?? "");
   const [role, setRole] = useState(saved.targetRole ?? "");
 
   function finish(skipped) {
     if (!skipped) {
       prefs.set({
         experience: experience || undefined,
-        tier: tier || undefined,
         targetRole: role.trim() || undefined,
         // fresherMode is the flag the pipeline actually consumes.
         fresherMode: experience === "fresher",
         onboarded: true,
       });
-      track(EVENTS.onboarding_completed, { experience, tier, hasRole: Boolean(role.trim()) });
+      track(EVENTS.onboarding_completed, { experience, hasRole: Boolean(role.trim()) });
     } else {
       prefs.set({ onboarded: true });
       track(EVENTS.onboarding_skipped);
@@ -57,11 +54,10 @@ export default function Onboarding() {
   return (
     <Page width="narrow">
       <div>
-        <h1 className="ds-h1">Two questions, then you are in</h1>
+        <h1 className="ds-h1">One question, then you are in</h1>
         <p className="ds-body" style={{ color: "var(--ink-mid)", marginTop: 8 }}>
           {user?.name ? `Welcome, ${user.name}. ` : ""}
-          These change how we score you — a fresher is not judged on missing years, and a PSU is
-          not scored like a startup.
+          This changes how we score you — a fresher is not judged on missing years.
         </p>
       </div>
 
@@ -72,14 +68,6 @@ export default function Onboarding() {
           value={experience}
           onChange={setExperience}
           options={EXPERIENCE}
-        />
-
-        <ChoiceGroup
-          label="Mostly applying to"
-          name="tier"
-          value={tier}
-          onChange={setTier}
-          options={TIERS}
         />
 
         <Field label="Target role" hint="optional">

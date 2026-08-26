@@ -22,7 +22,10 @@ import {
  * (ATSScanReport.jsx) already renders.
  */
 
-const WEIGHTS = { keyword: 30, experience: 20, bullets: 20, structure: 15, contact: 15 };
+// Exported so downstream pure-code consumers (achievable-ceiling.ts) derive
+// gain projections from the same constants the score itself is built from,
+// rather than re-deriving them from rounded category.max values.
+export const WEIGHTS = { keyword: 30, experience: 20, bullets: 20, structure: 15, contact: 15 };
 
 function structureScore(resume: ParsedResume): { earned: number; note: string } {
   const checks: Array<[boolean, string]> = [
@@ -133,7 +136,7 @@ export const goldenTests: Array<{
         projects: [{ name: "P", bullets: [] }], skills: ["Node"], education: [{ degree: "B.Tech", institution: "X", year: "2023" }],
         certifications: [],
       },
-      { tier: "Startup", fresherMode: false },
+      { fresherMode: false },
     ],
     expect: { naukri: 55, exactMatch: 60, semanticMatch: 70 },
   },

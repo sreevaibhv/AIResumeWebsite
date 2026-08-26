@@ -19,6 +19,7 @@ export const EVENTS = {
   onboarding_completed: "onboarding_completed",
   onboarding_skipped: "onboarding_skipped",
   resume_uploaded: "resume_uploaded",
+  resume_extraction_assessed: "resume_extraction_assessed",
   jd_submitted: "jd_submitted",
   scan_started: "scan_started",
   scan_completed: "scan_completed",
@@ -39,6 +40,15 @@ export const EVENTS = {
   // with a flagged claim rather than clicking past it.
   verification_failed_shown: "verification_failed_shown",
   claim_verification_responded: "claim_verification_responded",
+  // spec §2.2/§4/§7
+  keywords_confirmed: "keywords_confirmed",
+  improve_started: "improve_started",
+  improve_verified: "improve_verified",
+  improve_verification_failed: "improve_verification_failed",
+  resume_saved: "resume_saved",
+  resume_exported: "resume_exported",
+  interview_prep_requested: "interview_prep_requested",
+  referral_message_requested: "referral_message_requested",
 };
 
 export function track(event, properties = {}) {

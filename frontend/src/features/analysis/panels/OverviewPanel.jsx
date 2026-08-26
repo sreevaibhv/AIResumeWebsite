@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Check, X, AlertTriangle, ArrowRight, Lock } from "lucide-react";
 import {
   Card, Button, Chip, ScoreRing, SourceBadge, ConfidenceMark, LockedBlock, ICON,
+  Field, Input, Checkbox, Alert,
 } from "../../../design-system";
 
 /**
@@ -28,12 +29,127 @@ function Finding({ tone, text, meta, source }) {
   );
 }
 
-export function OverviewPanel({ data, onFix, onSeeAll }) {
+const VERDICT_META = {
+  APPLY: { tone: "good", label: "Apply" },
+  BORDERLINE: { tone: "warn", label: "Borderline" },
+  DONT_APPLY: { tone: "critical", label: "Not yet" },
+};
+
+/**
+ * VerdictBanner — spec §3. Every number here is server-computed arithmetic
+ * (ScoreAggregator + achievable-ceiling.ts); this component only presents
+ * it. Copy stays diagnosis, never promise: "competitive range," never
+ * "you'll get the interview."
+ */
+function VerdictBanner({ verdict }) {
+  if (!verdict) return null;
+  const meta = VERDICT_META[verdict.verdict] ?? VERDICT_META.BORDERLINE;
+  const { low, high } = verdict.projectedBand ?? {};
+
+  return (
+    <Alert tone={meta.tone} title={`${meta.label} — ${verdict.currentScore} → ${verdict.projectedScore}${low != null ? ` (${low}–${high})` : ""}`}>
+      <ul className="verdict-reasons">
+        {verdict.reasons.map((r, i) => (
+          <li key={i} className={`verdict-reasons__item verdict-reasons__item--${r.type}`}>
+            <span className="ds-body-sm">{r.text}</span>
+            <SourceBadge source={r.source === "LOCAL" ? "code" : "llm"} />
+          </li>
+        ))}
+      </ul>
+    </Alert>
+  );
+}
+
+/**
+ * ConfirmGate — spec §2.2. Missing must-haves are never auto-counted
+ * toward the projected score; only what the candidate ticks here does.
+ * Un-ticked must-haves stay hard blockers on the verdict (§3).
+ */
+function ConfirmGate({ data, onConfirm }) {
+  const criticalMissing = data.keywords.missing.filter((m) => m.priority === "critical");
+  const showLinkedin = !data.contact?.linkedin;
+  const showGithub = !data.contact?.github;
+  const [checked, setChecked] = useState(() => new Set(criticalMissing.filter((m) => m.confirmed).map((m) => m.term)));
+  const [linkedin, setLinkedin] = useState("");
+  const [github, setGithub] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  if (!criticalMissing.length && !showLinkedin && !showGithub) return null;
+
+  function toggle(term) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      next.has(term) ? next.delete(term) : next.add(term);
+      return next;
+    });
+  }
+
+  async function submit() {
+    setSaving(true);
+    try {
+      await onConfirm({
+        skills: Array.from(checked),
+        contact: {
+          linkedin: linkedin.trim() || undefined,
+          github: github.trim() || undefined,
+        },
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card pad="lg" className="confirm-gate">
+      <div className="ds-label">The JD asks for these — tick the ones you actually have</div>
+      <p className="ds-caption" style={{ marginTop: 4 }}>
+        Only confirmed items count toward your projected score. We never assume you have a skill you haven't told us about.
+      </p>
+
+      {criticalMissing.length ? (
+        <div className="confirm-gate__list">
+          {criticalMissing.map((m) => (
+            <Checkbox
+              key={m.term}
+              label={m.term}
+              checked={checked.has(m.term)}
+              onChange={() => toggle(m.term)}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {(showLinkedin || showGithub) ? (
+        <div className="confirm-gate__contact">
+          {showLinkedin ? (
+            <Field label="LinkedIn URL" hint="optional">
+              {(a) => <Input value={linkedin} onChange={(e) => setLinkedin(e.target.value)} placeholder="linkedin.com/in/…" {...a} />}
+            </Field>
+          ) : null}
+          {showGithub ? (
+            <Field label="GitHub URL" hint="optional">
+              {(a) => <Input value={github} onChange={(e) => setGithub(e.target.value)} placeholder="github.com/…" {...a} />}
+            </Field>
+          ) : null}
+        </div>
+      ) : null}
+
+      <Button size="sm" variant="secondary" onClick={submit} loading={saving}>
+        Update my projected score
+      </Button>
+    </Card>
+  );
+}
+
+export function OverviewPanel({ data, onFix, onSeeAll, onConfirm }) {
   const topFixes = data.roadmap.filter((r) => !r.locked);
 
   return (
     <div className="report__stack">
-      {/* ---------- verdict + rings ---------- */}
+      <VerdictBanner verdict={data.verdict} />
+      <ConfirmGate data={data} onConfirm={onConfirm} />
+
+      {/* ---------- score + rings ---------- */}
       <Card pad="lg">
         <div className="overview__head">
           <div className="overview__rings">
@@ -45,7 +161,7 @@ export function OverviewPanel({ data, onFix, onSeeAll }) {
           </div>
 
           <div className="overview__verdict">
-            <div className="ds-h2">{data.verdict}</div>
+            <div className="ds-h2">{data.scoreLabel}</div>
             <p className="ds-body overview__verdict-text">
               {data.fit.seniority || "Scored against this posting's requirements."}
             </p>
