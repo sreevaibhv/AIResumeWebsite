@@ -142,11 +142,15 @@ export const api = {
   getScan: (id) => request(`/scan/${id}`),
   confirmScan: (id, payload) => request(`/scan/${id}/confirm`, { method: "POST", body: JSON.stringify(payload) }),
   improveScan: (id) => request(`/scan/${id}/improve`, { method: "POST" }),
+  saveEditedResume: (scanId, structuredResume) =>
+    request(`/scan/${scanId}/resume-versions`, { method: "POST", body: JSON.stringify(structuredResume) }),
   generateInterviewPrep: (id) => request(`/scan/${id}/interview-prep`, { method: "POST" }),
   getInterviewPrep: (id) => request(`/scan/${id}/interview-prep`),
   referralMessage: (id, contactName) =>
     request(`/scan/${id}/referral-message`, { method: "POST", body: JSON.stringify({ contactName }) }),
   recruiterComment: (id) => request(`/scan/${id}/recruiter-comment`, { method: "POST" }),
+  generatePortalOptimization: (id) => request(`/scan/${id}/portal-optimization`, { method: "POST" }),
+  getPortalOptimization: (id) => request(`/scan/${id}/portal-optimization`),
   getDiff: (id) => request(`/scan/${id}/diff`),
 
   // resumes (saved library)

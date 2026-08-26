@@ -103,6 +103,7 @@ model Scan {
 
   resumeVersions ResumeVersion[]
   interviewPreps InterviewPrepSet[]
+  naukriOptimizations NaukriOptimizationSet[]
 
   errorMessage String?
   createdAt    DateTime @default(now())
@@ -116,7 +117,7 @@ model ResumeVersion {
   id          String   @id @default(cuid())
   scanId      String
   scan        Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
-  kind        String // "original" | "rewritten"
+  kind        String // "original" | "rewritten" | "edited"
   content     Json // structured resume JSON
   diff        Json? // before/after diff, only set on "rewritten"
   verified    Boolean  @default(false)
@@ -138,6 +139,23 @@ model InterviewPrepSet {
   technical Json
   hr        Json
   createdAt DateTime @default(now())
+
+  @@index([scanId])
+}
+
+// Phase D — portal-optimisation advice, generated on demand. Persisted
+// (unlike referralMessage/recruiterComment's return-only pattern) because
+// this output is materially richer/more expensive than those; a page
+// reload shouldn't force re-paying for it.
+model NaukriOptimizationSet {
+  id               String   @id @default(cuid())
+  scanId           String
+  scan             Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  headlineFix      Json
+  literalTermSwaps Json
+  recencyFixes     Json
+  summary          String
+  createdAt        DateTime @default(now())
 
   @@index([scanId])
 }

@@ -12,7 +12,7 @@ const HALF_PT = 2; // docx sizes are in half-points
  */
 export async function renderDocx(resume: ParsedResume, spec: TemplateSpec): Promise<Buffer> {
   const children: Paragraph[] = [];
-  for (const section of buildSections(resume)) {
+  for (const section of buildSections(resume, spec.sectionOrder)) {
     children.push(...renderSection(section, spec));
   }
 

@@ -5,6 +5,7 @@ import {
   Page, Card, Button, Chip, Select, EmptyState, ErrorState, SkeletonCard, scoreColor, ICON,
 } from "../../design-system";
 import { api, download } from "../../api/client";
+import { TEMPLATE_OPTIONS } from "../analysis/templateOptions";
 import "./ResumesPage.css";
 
 /**
@@ -69,9 +70,7 @@ function ResumeRow({ resume, onDeleted }) {
 
         <div className="resumes__actions">
           <Select value={template} onChange={(e) => setTemplate(e.target.value)} className="resumes__select">
-            <option value="ats-clean">ATS Clean</option>
-            <option value="ats-compact">ATS Compact</option>
-            <option value="modern-single">Modern Single-Column</option>
+            {TEMPLATE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </Select>
           <Select value={format} onChange={(e) => setFormat(e.target.value)} className="resumes__select">
             <option value="pdf">PDF</option>

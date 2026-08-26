@@ -47,6 +47,10 @@ export const EVENTS = {
   improve_verification_failed: "improve_verification_failed",
   resume_saved: "resume_saved",
   resume_exported: "resume_exported",
+  edit_tab_opened: "edit_tab_opened",
+  resume_edit_saved: "resume_edit_saved",
+  resume_edit_advisory_flagged: "resume_edit_advisory_flagged",
+  portal_optimization_requested: "portal_optimization_requested",
   interview_prep_requested: "interview_prep_requested",
   referral_message_requested: "referral_message_requested",
 };

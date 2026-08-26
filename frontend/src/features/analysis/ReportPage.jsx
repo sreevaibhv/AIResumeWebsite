@@ -12,6 +12,8 @@ import { ScorePanel } from "./panels/ScorePanel";
 import { KeywordsPanel } from "./panels/KeywordsPanel";
 import { QualityPanel } from "./panels/QualityPanel";
 import { FixesPanel } from "./panels/FixesPanel";
+import { EditPanel } from "./panels/EditPanel";
+import { PortalPanel } from "./panels/PortalPanel";
 import { PrepPanel } from "./panels/PrepPanel";
 import "./Report.css";
 
@@ -30,7 +32,7 @@ import "./Report.css";
  * decision order, so the fixes are never hidden behind a tap.
  */
 
-const TAB_ORDER = ["overview", "score", "keywords", "quality", "fixes", "prep"];
+const TAB_ORDER = ["overview", "score", "keywords", "quality", "fixes", "edit", "portal", "prep"];
 
 export default function ReportPage() {
   const { scanId } = useParams();
@@ -62,6 +64,7 @@ export default function ReportPage() {
   function selectTab(next) {
     setTab(next);
     window.history.replaceState(null, "", `#${next}`);
+    if (next === "edit") track(EVENTS.edit_tab_opened, { scanId });
   }
 
   const data = useMemo(() => (scan ? mapScanToReport(scan) : null), [scan]);
@@ -143,12 +146,30 @@ export default function ReportPage() {
     setScan((prev) => ({ ...prev, interviewPreps: [...(prev.interviewPreps ?? []), prep] }));
   }
 
+  // Phase C — a saved edit's version is synthesized client-side by
+  // EditPanel from the endpoint's response (no full-row echo from the
+  // backend), then merged in exactly like handleGeneratePrep merges a new
+  // prep set: so a second edit-and-save round starts from the right
+  // baseline, and the "Optimised" chip updates without a refetch.
+  function handleEditSaved(version) {
+    setScan((prev) => ({ ...prev, resumeVersions: [...(prev.resumeVersions ?? []), version] }));
+  }
+
+  /** Phase D — mirrors handleGeneratePrep's merge-into-scan-state pattern exactly. */
+  async function handleGeneratePortalOptimization() {
+    const opt = await api.generatePortalOptimization(scanId);
+    setScan((prev) => ({ ...prev, naukriOptimizations: [...(prev.naukriOptimizations ?? []), opt] }));
+    track(EVENTS.portal_optimization_requested, { scanId });
+  }
+
   const tabs = [
     { key: "overview", label: "Overview" },
     { key: "score", label: "Score" },
     { key: "keywords", label: "Keywords", count: data.keywords.missing.length || undefined },
     { key: "quality", label: "Quality" },
     { key: "fixes", label: "Fixes", count: data.roadmap.length || undefined },
+    { key: "edit", label: "Edit" },
+    { key: "portal", label: "Portal fixes" },
     { key: "prep", label: "Prep" },
   ];
 
@@ -158,6 +179,8 @@ export default function ReportPage() {
     keywords: <KeywordsPanel data={data} />,
     quality: <QualityPanel data={data} onImprove={goToFixes} />,
     fixes: <FixesPanel data={data} onUnlock={unlock} onGeneratePrep={handleGeneratePrep} />,
+    edit: <EditPanel data={data} onSaved={handleEditSaved} />,
+    portal: <PortalPanel data={data} onGenerate={handleGeneratePortalOptimization} />,
     prep: <PrepPanel data={data} onGenerate={handleGeneratePrep} />,
   };
 
@@ -196,6 +219,14 @@ export default function ReportPage() {
           <details className="report__accordion" open>
             <summary className="ds-h3">All fixes</summary>
             {panels.fixes}
+          </details>
+          <details className="report__accordion">
+            <summary className="ds-h3">Edit your resume</summary>
+            {panels.edit}
+          </details>
+          <details className="report__accordion">
+            <summary className="ds-h3">Portal fixes</summary>
+            {panels.portal}
           </details>
           <details className="report__accordion">
             <summary className="ds-h3">Interview prep</summary>

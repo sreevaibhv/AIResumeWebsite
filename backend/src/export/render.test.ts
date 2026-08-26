@@ -60,6 +60,36 @@ describe("export round-trip (ATS-safety)", () => {
     });
   }
 
+  /**
+   * The round-trip tests above only prove content survives — none of them
+   * prove the fresher/product-startup presets actually reorder anything,
+   * which is the entire point of adding sectionOrder. Index-of comparison
+   * on the uppercased section headings makes the reordering itself
+   * falsifiable, not just asserted by the template file's own comment.
+   */
+  it("fresher: Education renders before Experience (default order is the reverse)", async () => {
+    const buffer = await render(resume, "fresher", "pdf");
+    const text = extractPdfText(buffer);
+    expect(text.indexOf("EDUCATION")).toBeGreaterThanOrEqual(0);
+    expect(text.indexOf("EXPERIENCE")).toBeGreaterThanOrEqual(0);
+    expect(text.indexOf("EDUCATION")).toBeLessThan(text.indexOf("EXPERIENCE"));
+  });
+
+  it("product-startup: Experience renders before Skills (default order is the reverse)", async () => {
+    const buffer = await render(resume, "product-startup", "pdf");
+    const text = extractPdfText(buffer);
+    expect(text.indexOf("EXPERIENCE")).toBeGreaterThanOrEqual(0);
+    expect(text.indexOf("SKILLS")).toBeGreaterThanOrEqual(0);
+    expect(text.indexOf("EXPERIENCE")).toBeLessThan(text.indexOf("SKILLS"));
+  });
+
+  it("ats-clean (default order): Skills renders before Experience, Experience before Education", async () => {
+    const buffer = await render(resume, "ats-clean", "pdf");
+    const text = extractPdfText(buffer);
+    expect(text.indexOf("SKILLS")).toBeLessThan(text.indexOf("EXPERIENCE"));
+    expect(text.indexOf("EXPERIENCE")).toBeLessThan(text.indexOf("EDUCATION"));
+  });
+
   it("DOCX export contains the resume's real text (not an image)", async () => {
     const JSZip = (await import("jszip")).default;
     const buffer = await render(resume, "ats-clean", "docx");

@@ -26,4 +26,13 @@ export interface TemplateSpec {
   lineGap: number;
   /** Hex color for section headings and the name line. Text only — never a background or graphic. */
   accentColor: string;
+  /**
+   * Overrides which order the reorderable sections render in — everything
+   * except contact/summary, which always render first/second regardless of
+   * this field. Omitted entirely -> buildSections() falls back to its
+   * original hardcoded order, so a template that doesn't set this is
+   * byte-for-byte unchanged. A kind with real resume content that's missing
+   * from this list is still appended, never silently dropped.
+   */
+  sectionOrder?: Array<"skills" | "experience" | "projects" | "education" | "certifications">;
 }

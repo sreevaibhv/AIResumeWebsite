@@ -3,6 +3,7 @@ import { Response } from "express";
 import { ScanService } from "./scan.service";
 import { CreateScanDto } from "./dto/create-scan.dto";
 import { ConfirmScanDto } from "./dto/confirm-scan.dto";
+import { EditResumeVersionDto } from "./dto/edit-resume.dto";
 import { ReferralMessageDto } from "./dto/referral-message.dto";
 import { OptionalJwtGuard, JwtAuthGuard, userIdOf, AuthedUser } from "../auth/optional-jwt.guard";
 import { ExportFormat } from "../export/render";
@@ -61,6 +62,13 @@ export class ScanController {
     return this.scanService.improveScan(id, req.user.userId);
   }
 
+  /** Phase C — a human-authored edit, advisory-verified, never blocked. */
+  @Post("scan/:id/resume-versions")
+  @UseGuards(JwtAuthGuard)
+  async saveEdit(@Param("id") id: string, @Body() dto: EditResumeVersionDto, @Req() req: { user: AuthedUser }) {
+    return this.scanService.saveEditedVersion(id, req.user.userId, dto);
+  }
+
   @Post("scan/:id/interview-prep")
   @UseGuards(JwtAuthGuard)
   async generateInterviewPrep(@Param("id") id: string, @Req() req: { user: AuthedUser }) {
@@ -82,6 +90,18 @@ export class ScanController {
   @UseGuards(JwtAuthGuard)
   async recruiterComment(@Param("id") id: string, @Req() req: { user: AuthedUser }) {
     return this.scanService.recruiterComment(id, req.user.userId);
+  }
+
+  /** Phase D — mirrors the interview-prep pair exactly. */
+  @Post("scan/:id/portal-optimization")
+  @UseGuards(JwtAuthGuard)
+  async generatePortalOptimization(@Param("id") id: string, @Req() req: { user: AuthedUser }) {
+    return this.scanService.generatePortalOptimization(id, req.user.userId);
+  }
+
+  @Get("scan/:id/portal-optimization")
+  async portalOptimization(@Param("id") id: string) {
+    return this.scanService.getPortalOptimization(id);
   }
 
   @Get("scan/:id/diff")

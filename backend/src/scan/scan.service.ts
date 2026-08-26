@@ -8,9 +8,12 @@ import { computeCeiling, ConfirmedSkills } from "../scoring/achievable-ceiling";
 import { computeVerdict } from "../scoring/verdict";
 import { CreateScanDto } from "./dto/create-scan.dto";
 import { ConfirmScanDto } from "./dto/confirm-scan.dto";
+import { EditResumeVersionDto } from "./dto/edit-resume.dto";
 import { runInterviewPrepAgent } from "../agents/interview-prep.agent";
 import { runReferralMessageAgent } from "../agents/referral-message.agent";
 import { runRecruiterCommentAgent } from "../agents/recruiter-comment.agent";
+import { runNaukriOptimizationAgent } from "../agents/naukri-score.agent";
+import { runVerifyAgent } from "../agents/verify.agent";
 import { render, ExportFormat, contentType } from "../export/render";
 import { ScanOptions, Tier, ParsedResume, ParsedJD, DeterministicResult, ScoreResult, ScoreCategory } from "../agents/types";
 import { Tier as PrismaTier, Scan, Prisma } from "@prisma/client";
@@ -203,7 +206,7 @@ export class ScanService {
         : 0,
       role: (scan.jdParsed as { title?: string } | null)?.title ?? null,
       company: (scan.jdParsed as { company?: string } | null)?.company ?? null,
-      optimized: scan.resumeVersions.some((v) => v.kind === "rewritten" && v.verified),
+      optimized: scan.resumeVersions.some((v) => (v.kind === "rewritten" && v.verified) || v.kind === "edited"),
       hasPrep: scan.interviewPreps.length > 0,
     }));
   }
@@ -211,7 +214,7 @@ export class ScanService {
   async getScan(id: string) {
     const scan = await this.prisma.scan.findUnique({
       where: { id },
-      include: { resumeVersions: true, interviewPreps: true },
+      include: { resumeVersions: true, interviewPreps: true, naukriOptimizations: true },
     });
     if (!scan) throw new NotFoundException(`Scan ${id} not found`);
     return scan;
@@ -349,6 +352,75 @@ export class ScanService {
     };
   }
 
+  /**
+   * Phase C — POST /scan/:id/resume-versions. A human-authored edit, not an
+   * AI rewrite: VerifyAgent still runs, but purely advisory — the reasoning
+   * behind RewritePipeline's fail-closed gate (stopping an LLM from
+   * inventing a plausible lie) doesn't transfer to a user editing their own
+   * resume, who may legitimately add real content the original never
+   * mentioned. This method therefore has exactly one terminal branch: the
+   * edit is always persisted as submitted, and the advisory outcome is
+   * reported alongside it, never used to withhold the save.
+   *
+   * VerifyAgent's baseline is always scan.resumeParsed (the true original),
+   * never a prior edited/rewritten version — chaining would let an earlier
+   * fabrication "pass" a later check just because it only has to trace back
+   * to already-unverified content. Score deltas are likewise diffed against
+   * the scan's original score (matching improveScan's own convention), so a
+   * second saved edit shows cumulative progress, not incremental-since-last-save.
+   */
+  async saveEditedVersion(id: string, userId: string, dto: EditResumeVersionDto) {
+    const scan = await this.assertOwnsScan(await this.getScan(id), userId);
+    if (scan.status !== "COMPLETE" || !scan.resumeParsed || !scan.jdParsed || !scan.roadmap || !scan.details) {
+      throw new BadRequestException("Scan must complete successfully before it can be edited.");
+    }
+
+    const editedResume = dto as unknown as ParsedResume;
+    const originalResume = scan.resumeParsed as unknown as ParsedResume;
+    const jd = scan.jdParsed as unknown as ParsedJD;
+    const options: ScanOptions = { fresherMode: scan.fresherMode };
+    const confirmed = (scan.confirmedSkills as unknown as ConfirmedSkills | null) ?? null;
+
+    const verification = await runVerifyAgent(originalResume, editedResume, scan.id);
+
+    const rescored = await this.scanPipeline.runFromStructured(editedResume, jd, toTierLabel(scan.tier), options, scan.id);
+
+    const ceiling = computeCeiling(rescored.score, rescored.deterministic, rescored.quality, editedResume, confirmed);
+    const verdict = computeVerdict(rescored.score, rescored.deterministic, jd, ceiling, confirmed);
+
+    const beforeScore = (scan.score as unknown as ScoreResult).generic;
+    const afterScore = rescored.score.generic;
+    const categoryDelta = computeCategoryDelta((scan.score as unknown as ScoreResult).categories, rescored.score.categories);
+
+    const version = await this.prisma.resumeVersion.create({
+      data: {
+        scanId: scan.id,
+        kind: "edited",
+        // Unlike "rewritten", `content` is never gated by `verified` here —
+        // an edit is always persisted as submitted.
+        content: editedResume as any,
+        verified: verification.data.passed,
+        flagged: verification.data.passed ? undefined : (verification.data.flaggedClaims as any),
+        diff: { rescored: rescored.score, verdict } as any,
+        beforeScore,
+        afterScore,
+        scoreDelta: categoryDelta as any,
+      },
+    });
+
+    return {
+      status: "saved" as const,
+      resumeVersionId: version.id,
+      structuredResume: editedResume,
+      beforeScore,
+      afterScore,
+      categoryDelta,
+      score: rescored.score,
+      verdict,
+      advisory: { passed: verification.data.passed, flaggedClaims: verification.data.flaggedClaims },
+    };
+  }
+
   /** spec §7 — generated on demand; no longer gated behind an improve. */
   async generateInterviewPrep(id: string, userId: string) {
     const scan = await this.assertOwnsScan(await this.getScan(id), userId);
@@ -386,6 +458,42 @@ export class ScanService {
       scan.id,
     );
     return result.data;
+  }
+
+  /**
+   * Phase D — portal-optimisation advice, on demand; mirrors
+   * generateInterviewPrep/getInterviewPrep exactly. Reuses
+   * scan.details.deterministic rather than recomputing it: deterministic
+   * checks are a pure function of resume+JD text, which hasn't changed
+   * since the original scan.
+   */
+  async generatePortalOptimization(id: string, userId: string) {
+    const scan = await this.assertOwnsScan(await this.getScan(id), userId);
+    if (scan.status !== "COMPLETE" || !scan.resumeParsed || !scan.jdParsed || !scan.details) {
+      throw new BadRequestException("Scan must complete successfully before generating portal optimization advice.");
+    }
+    const det = (scan.details as any).deterministic as DeterministicResult;
+    const result = await runNaukriOptimizationAgent(
+      scan.resumeParsed as unknown as ParsedResume,
+      scan.jdParsed as unknown as ParsedJD,
+      det,
+      scan.id,
+    );
+    return this.prisma.naukriOptimizationSet.create({
+      data: {
+        scanId: scan.id,
+        headlineFix: result.data.headlineFix as any,
+        literalTermSwaps: result.data.literalTermSwaps as any,
+        recencyFixes: result.data.recencyFixes as any,
+        summary: result.data.summary,
+      },
+    });
+  }
+
+  async getPortalOptimization(scanId: string) {
+    const opt = await this.prisma.naukriOptimizationSet.findFirst({ where: { scanId }, orderBy: { createdAt: "desc" } });
+    if (!opt) throw new NotFoundException(`No portal optimization generated yet for scan ${scanId} — generate it first.`);
+    return opt;
   }
 
   /** spec §4 — pulled out of the improve pipeline; it was paid for on every rewrite and never displayed. */

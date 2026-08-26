@@ -19,7 +19,7 @@ export function renderPdf(resume: ParsedResume, spec: TemplateSpec): Promise<Buf
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    for (const section of buildSections(resume)) {
+    for (const section of buildSections(resume, spec.sectionOrder)) {
       renderSection(doc, section, spec);
     }
 

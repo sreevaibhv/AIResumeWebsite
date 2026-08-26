@@ -76,6 +76,12 @@ export const MODEL_ROUTING: Record<string, ModelSpec> = {
   RecruiterCommentAgent: MID,
   InterviewPrepAgent: CHEAP,
   NaukriScoreAgent: CHEAP,
+  // Generates specific, literal, copy-pasteable text a user may paste
+  // directly into their real resume — closer to RewriteAgent's invention
+  // risk than to NaukriScoreAgent's bounded score+sentence. RoadmapAgent
+  // (advisory, still FRONTIER for the same reason) is the closest
+  // precedent. Downgrade to MID only with an eval showing it's safe.
+  NaukriOptimizationAgent: FRONTIER,
   TierCalibrationAgent: CHEAP,
   ReferralMessageAgent: CHEAP,
 };

@@ -193,6 +193,13 @@ export function mapScanToReport(scan) {
     contact: resume.contact ?? {},
     createdAt: scan.createdAt,
 
+    // Full structured resume + version history — the Edit tab's starting
+    // point. `resumeVersions` is the raw array (any kind), so the editor
+    // can seed from the latest save; `resume` is the ORIGINAL parsed
+    // resume, the one VerifyAgent checks edits against server-side.
+    resume,
+    resumeVersions: scan.resumeVersions ?? [],
+
     // headline
     generic,
     naukri,
@@ -250,6 +257,18 @@ export function mapScanToReport(scan) {
       const latest = (scan.interviewPreps ?? []).slice(-1)[0];
       return latest ? { technical: latest.technical ?? [], hr: latest.hr ?? [] } : null;
     })(),
-    isOptimized: (scan.resumeVersions ?? []).some((v) => v.kind === "rewritten" && v.verified),
+
+    hasPortalOptimization: (scan.naukriOptimizations ?? []).length > 0,
+    portalOptimization: (() => {
+      const latest = (scan.naukriOptimizations ?? []).slice(-1)[0];
+      if (!latest) return null;
+      return {
+        headlineFix: latest.headlineFix,
+        literalTermSwaps: latest.literalTermSwaps ?? [],
+        recencyFixes: latest.recencyFixes ?? [],
+        summary: latest.summary,
+      };
+    })(),
+    isOptimized: (scan.resumeVersions ?? []).some((v) => (v.kind === "rewritten" && v.verified) || v.kind === "edited"),
   };
 }
