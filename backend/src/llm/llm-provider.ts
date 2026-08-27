@@ -35,14 +35,22 @@ function stripCodeFence(text: string): string {
   return (fenced ? fenced[1] : text).trim();
 }
 
-async function callProvider(spec: ModelSpec, prompt: string) {
+/**
+ * `temperature` is Gemini-only today — the two agents that need it
+ * (SemanticMatchAgent, QualityAgent, NaukriScoreAgent's scoring path) only
+ * ever route to Gemini (model-routing.ts's CHEAP/MID tiers), and
+ * completeAnthropic/completeOpenAI don't accept a config override. Silently
+ * ignored on the other providers rather than threaded everywhere, since
+ * nothing in this codebase currently needs it there.
+ */
+async function callProvider(spec: ModelSpec, prompt: string, temperature?: number) {
   switch (spec.provider) {
     case "anthropic":
       return completeAnthropic(prompt, spec.model);
     case "openai":
       return completeOpenAI(prompt, spec.model);
     case "gemini":
-      return completeGemini(prompt, spec.model);
+      return completeGemini(prompt, spec.model, temperature);
     default:
       throw new Error(`Unknown provider "${spec.provider}"`);
   }
@@ -79,8 +87,8 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
   throw lastErr;
 }
 
-function callProviderWithRetry(spec: ModelSpec, prompt: string, maxAttempts = 3) {
-  return withRetry(() => callProvider(spec, prompt), maxAttempts);
+function callProviderWithRetry(spec: ModelSpec, prompt: string, temperature?: number, maxAttempts = 3) {
+  return withRetry(() => callProvider(spec, prompt, temperature), maxAttempts);
 }
 
 /**
@@ -94,12 +102,12 @@ export async function completeStructured<S extends ZodType>(
   prompt: string,
   schema: S,
   agentName: string,
-  opts: { scanId?: string; modelOverride?: ModelSpec } = {},
+  opts: { scanId?: string; modelOverride?: ModelSpec; temperature?: number } = {},
 ): Promise<StructuredResult<z.infer<S>>> {
   const spec = resolveModel(agentName, opts.modelOverride);
   const start = Date.now();
 
-  let raw = await callProviderWithRetry(spec, prompt);
+  let raw = await callProviderWithRetry(spec, prompt, opts.temperature);
   let parsed = safeParseJson(raw.text);
   let validated = parsed.ok ? schema.safeParse(parsed.value) : { success: false as const };
 
@@ -107,10 +115,14 @@ export async function completeStructured<S extends ZodType>(
   let tokensOut = raw.tokensOut;
 
   if (!validated.success) {
-    // One corrective retry — tell the model exactly what was wrong.
+    // One corrective retry — tell the model exactly what was wrong. This is
+    // the existing safety net that a fractional 0-1 value in place of a
+    // 0-100 integer score now falls into: .int() on the affected agents'
+    // schemas turns that mistake into a validation failure, which lands
+    // here and gets a chance to self-correct, instead of silently passing.
     const issue = parsed.ok ? JSON.stringify((validated as z.SafeParseError<unknown>).error?.format?.() ?? "schema mismatch") : parsed.error;
     const correctionPrompt = `${prompt}\n\nYour previous response failed validation: ${issue}\nReturn ONLY valid JSON matching the required shape. No prose, no markdown fences.`;
-    raw = await callProviderWithRetry(spec, correctionPrompt);
+    raw = await callProviderWithRetry(spec, correctionPrompt, opts.temperature);
     tokensIn += raw.tokensIn;
     tokensOut += raw.tokensOut;
     parsed = safeParseJson(raw.text);

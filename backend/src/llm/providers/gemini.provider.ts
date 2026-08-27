@@ -11,12 +11,15 @@ function getClient(): GoogleGenAI {
   return client;
 }
 
-export async function completeGemini(prompt: string, model: string): Promise<CompletionResult> {
+export async function completeGemini(prompt: string, model: string, temperature?: number): Promise<CompletionResult> {
   const ai = getClient();
   const response = await ai.models.generateContent({
     model,
     contents: prompt,
-    config: { responseMimeType: "application/json" },
+    config: {
+      responseMimeType: "application/json",
+      ...(temperature != null ? { temperature } : {}),
+    },
   });
   return {
     text: response.text ?? "",

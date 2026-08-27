@@ -10,7 +10,12 @@ import { ParsedResume, ParsedJD, DeterministicResult } from "./types";
 const NAUKRI_QUIRKS = "Naukri weights: exact keyword-in-headline/title match far more than a generic ATS, recency (skills used in the most recent role count more than older ones), and literal keyword presence over semantic synonyms — the opposite of most company ATS, which credit semantic matches.";
 
 const OutputSchema = z.object({
-  naukriScore: z.number().min(0).max(100),
+  // .int() — P0 fix, same mechanism as semantic-match.agent.ts/
+  // quality.agent.ts: an un-constrained 0.95 silently passes .min(0).max(100)
+  // and then gets divided by 100 downstream, collapsing a genuine near-
+  // perfect score toward 0. .int() turns that into a validation failure
+  // that completeStructured's existing correction retry catches.
+  naukriScore: z.number().int().min(0).max(100),
   gapReason: z.string(),
 });
 export type NaukriOutput = z.infer<typeof OutputSchema>;
@@ -31,6 +36,8 @@ function buildPrompt(resume: ParsedResume, jd: ParsedJD, det: DeterministicResul
   return `
 You compute a Naukri-specific ATS score, which differs from how a generic company ATS scores the same resume. Naukri weights: (1) exact keyword match in headline/title far more than a generic ATS, (2) recency — skills used in the most recent role count more than older ones, (3) literal keyword presence over semantic synonyms. Score 0-100 and explain the single biggest reason a generic-ATS-friendly resume would score lower here, in one sentence a non-technical user understands.
 
+naukriScore is a whole integer from 0 to 100 (e.g. 95, not 0.95) — a percentage, not a 0-1 fraction.
+
 Return ONLY JSON matching this shape: {naukriScore, gapReason}
 
 ${FEW_SHOT}
@@ -48,7 +55,8 @@ export async function runNaukriScoreAgent(
   scanId?: string,
 ) {
   const prompt = buildPrompt(resume, jd, det);
-  return completeStructured(prompt, OutputSchema, "NaukriScoreAgent", { scanId });
+  // temperature: 0 — see semantic-match.agent.ts's call site for why.
+  return completeStructured(prompt, OutputSchema, "NaukriScoreAgent", { scanId, temperature: 0 });
 }
 
 export const goldenTests: Array<{ note: string }> = [

@@ -4,10 +4,17 @@ import { ParsedResume, ParsedJD, ScanOptions } from "./types";
 import { CandidatePair } from "../vector/vector-store.interface";
 
 const OutputSchema = z.object({
-  semanticMatchPct: z.number().min(0).max(100),
+  // .int() — P0 fix. Without it, a model that emits 0.95 instead of 95
+  // (plausibly anchored on `matches[].conf`, a genuinely 0-1-scaled field
+  // in this same shape) silently passes validation, then score-aggregator's
+  // (score/100)*weight arithmetic collapses a 95% judgment to ~0 earned
+  // points — a ~19-point swing that looks like scoring noise but is a units
+  // bug. .int() makes that case fail validation, which triggers
+  // completeStructured's existing correction retry instead of shipping silently.
+  semanticMatchPct: z.number().int().min(0).max(100),
   matches: z.array(z.object({ resume: z.string(), jd: z.string(), conf: z.number() })),
   missingResponsibilities: z.array(z.string()),
-  experienceFitScore: z.number().min(0).max(100),
+  experienceFitScore: z.number().int().min(0).max(100),
   seniorityFit: z.string(),
   domainFit: z.string(),
 });
@@ -24,6 +31,8 @@ Judgment: experienceFitScore should weigh project scope/complexity, not penalize
 function buildPrompt(resume: ParsedResume, jd: ParsedJD, candidates: CandidatePair[], options: ScanOptions): string {
   return `
 You judge how well a candidate's resume semantically matches a job description. You are given candidate skill/phrase pairs pre-narrowed by vector similarity — adjudicate them, don't just accept the similarity score at face value. Also identify JD responsibilities the resume never addresses, even implicitly.
+
+semanticMatchPct and experienceFitScore are whole integers from 0 to 100 (e.g. 95, not 0.95) — a percentage, not a 0-1 fraction. This is a different scale from the vector candidates' confidence values below, which ARE 0-1.
 
 ${options.fresherMode ? "Fresher mode is ON: weigh projects and certifications as primary evidence of ability. Do not penalize for missing years of formal experience." : ""}
 
@@ -46,7 +55,11 @@ export async function runSemanticMatchAgent(
   scanId?: string,
 ) {
   const prompt = buildPrompt(resume, jd, candidates, options);
-  return completeStructured(prompt, OutputSchema, "SemanticMatchAgent", { scanId });
+  // temperature: 0 — a scoring agent, not a creative one. Reduces (not
+  // guarantees, per the provider SDK's own docs) repeat-call judgment
+  // wobble on re-score; the .int() fix above is what actually closes the
+  // units bug.
+  return completeStructured(prompt, OutputSchema, "SemanticMatchAgent", { scanId, temperature: 0 });
 }
 
 export const goldenTests: Array<{ note: string }> = [

@@ -1,6 +1,6 @@
 import { ScoreResult, DeterministicResult, ParsedJD } from "../agents/types";
 import { CeilingResult, ConfirmedSkills } from "./achievable-ceiling";
-import { TARGET_SCORE, BORDERLINE_BAND, KEYWORD_FLOOR, EXPERIENCE_FLOOR } from "./verdict.config";
+import { TARGET_SCORE, BORDERLINE_BAND, KEYWORD_FLOOR, EXPERIENCE_FLOOR, SCORE_NOISE_BAND } from "./verdict.config";
 
 /**
  * Verdict — spec §3. Pure code, no LLM. The headline runs on the overall
@@ -54,9 +54,18 @@ export function computeVerdict(
   const experienceFloorBreach = experiencePoints < EXPERIENCE_FLOOR;
   const floorBreach = keywordFloorBreach || experienceFloorBreach;
 
+  // P0 — don't commit to a hard APPLY/DONT_APPLY label when projectedScore
+  // sits close enough to either seam that repeat-scoring noise could flip
+  // it. Distinct from BORDERLINE_BAND's static margin below.
+  const nearApplySeam = Math.abs(ceiling.projectedScore - TARGET_SCORE) <= SCORE_NOISE_BAND;
+  const nearDontApplySeam = Math.abs(ceiling.projectedScore - (TARGET_SCORE - BORDERLINE_BAND)) <= SCORE_NOISE_BAND;
+  const inNoiseZone = !floorBreach && (nearApplySeam || nearDontApplySeam);
+
   let verdict: VerdictLabel;
   if (floorBreach) {
     verdict = "DONT_APPLY";
+  } else if (inNoiseZone) {
+    verdict = "BORDERLINE";
   } else if (ceiling.projectedScore >= TARGET_SCORE) {
     verdict = "APPLY";
   } else if (ceiling.projectedScore >= TARGET_SCORE - BORDERLINE_BAND) {
@@ -66,6 +75,14 @@ export function computeVerdict(
   }
 
   const reasons: VerdictReason[] = [];
+
+  if (inNoiseZone) {
+    reasons.push({
+      type: "blocker",
+      text: `Your projected score (${ceiling.projectedScore}) is close enough to the apply threshold that re-scoring the same resume could land on either side — treat this as borderline, not a confident verdict.`,
+      source: "MODEL",
+    });
+  }
 
   if (keywordFloorBreach) {
     reasons.push({
